@@ -13,3 +13,7 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+web/node_modules/
+web/dist/
+.idea/vcs.xml

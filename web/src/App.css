@@ -1,0 +1,40 @@
+body {
+  margin: 0;
+  background: #111;
+  color: white;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.app {
+  height: 100vh;
+  display: grid;
+  place-items: center;
+}
+
+.card {
+  width: 500px;
+  background: #222;
+  border-radius: 16px;
+  padding: 32px;
+}
+
+h1 {
+  margin-top: 0;
+}
+
+.status {
+  color: #7CFC00;
+  margin-bottom: 24px;
+}
+
+table {
+  width: 100%;
+}
+
+td {
+  padding: 10px 0;
+}
+
+td:first-child {
+  font-weight: bold;
+}
