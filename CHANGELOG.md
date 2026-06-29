@@ -1,34 +1,25 @@
-# Changelog
+# FrameRevive Changelog
 
-All notable changes to this project will be documented in this file.
-
-The format is inspired by Keep a Changelog and follows semantic versioning where practical.
-
----
-
-## [0.1.0] - 2026-06-27
+## v0.3.0 - JavaScript Bridge
 
 ### Added
-
-- Initial Android application
-- Fullscreen immersive mode
-- Embedded Android WebView
-- React/Vite frontend support
-- Successful deployment to Lenovo Smart Frame
-- Git repository initialization
-- GitHub repository
-- Project documentation
-    - README
-    - ROADMAP
-    - CHANGELOG
-
-### Hardware Tested
-
-- Lenovo Smart Frame (CD-3L501F)
-- Android 10
+- Android WebView application shell
+- React/Vite frontend
+- Kotlin JavaScript bridge
+- Native Android calls from React
 
 ### Status
+- Working on Lenovo Smart Frame CD-3L501F
+- Milestone 3 complete
 
-Prototype complete.
+## v0.2.0 - WebView Prototype
 
-Ready for Android ↔ JavaScript bridge development.
+### Added
+- Fullscreen WebView
+- Vite dev server loading on frame
+
+## v0.1.0 - Android Bootstrap
+
+### Added
+- Initial Android project
+- App installs and launches on Lenovo Smart Frame
