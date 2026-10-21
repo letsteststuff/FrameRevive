@@ -5,7 +5,9 @@ This alpha is for the Lenovo Smart Frame CD-3L501F running Android 10. It replac
 ## 1. Prepare the frame
 
 - Keep it powered and connected to your home Wi-Fi.
-- Connect USB and enable USB debugging in Android developer options. Accept **Always allow from this computer** on the frame. A USB mouse/hub may be needed to operate Android settings; the frame is not assumed to have a touchscreen.
+- The frame is not assumed to have a touchscreen. On the tested frame, an Android phone running **Bluetooth Keyboard & Mouse** was paired with the frame and used as its mouse/keyboard. Pair it while Lenovo's software is still available, before running the installer. Keep the phone connected through the USB authorization step below. A compatible physical mouse/keyboard is another option.
+- Use the phone's mouse controls to open the frame's Android Settings. In **About device** (wording may vary), select **Build number** repeatedly, usually seven times, until developer mode is enabled. Return to Settings, open **Developer options**, and enable **USB debugging**.
+- Connect the frame to the Windows computer with a USB data cable. When **Allow USB debugging?** appears on the frame, use the phone's mouse controls to select **Always allow from this computer**, then **Allow/OK**. This on-frame prompt must be accepted; enabling developer mode alone is not enough. If the installer reports an unauthorized device, check the frame for this prompt and accept it before retrying.
 - Install [Google's Android SDK Platform-Tools](https://developer.android.com/tools/releases/platform-tools). Android Studio's ADB is found automatically. Otherwise extract `platform-tools` beside this installer.
 - Keep `FrameRevive.apk`, `Install.cmd`, and `Install-FrameRevive.ps1` together.
 
