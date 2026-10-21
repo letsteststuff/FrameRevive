@@ -4,7 +4,9 @@ A standalone Android photo-frame app for the discontinued Lenovo Smart Frame (CD
 
 **`main` is the maintained branch.** The older prototype branches are historical; start new work and builds from `main`. See the [documentation index](docs/README.md).
 
-## Current version: 0.5.1 alpha
+## Current version: 0.5.2 alpha
+
+Version 0.5.2 keeps local controls open during button actions, adds loading indicators and inline results, and restores proximity-triggered front button lights with an eight-second timeout on the tested Lenovo firmware.
 
 Version 0.5.1 replaces skipped background wake broadcasts with direct activity alarms, restores the frame's own daytime brightness, and shows the next scheduled wake in the controls page. Version 0.5 missed an overnight wake on the tested frame. The replacement passed a background-idle wake test; full overnight confirmation is still pending.
 

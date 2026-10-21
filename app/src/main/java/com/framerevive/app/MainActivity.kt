@@ -46,6 +46,7 @@ class MainActivity : Activity() {
     private var sleeping = false
     private var failures = 0
     private var remote: FrameRemote? = null
+    private val buttonLights by lazy { FrameButtonLights(this) }
     private var manageUrl = ""
     @Volatile private var availableAlbums = emptyList<PrivatePhotosClient.Album>()
     @Volatile private var setupMessage = "Import your Google Photos session, then choose an album."
@@ -324,13 +325,22 @@ class MainActivity : Activity() {
     }
     override fun onResume() {
         super.onResume(); active = true
+        buttonLights.start()
         setShowWhenLocked(true); setTurnScreenOn(true)
         if (intent.action == FramePower.WAKE || intent.action == FramePower.SLEEP)
             FramePower.record(this, "Scheduled display resumed")
         FramePower.schedule(this)
         checkSchedule(force = true); showNext()
     }
-    override fun onPause() { super.onPause(); active = false; generation++; handler.removeCallbacks(advance) }
+    override fun onPause() { buttonLights.stop(); super.onPause(); active = false; generation++; handler.removeCallbacks(advance) }
+    override fun dispatchTouchEvent(event: android.view.MotionEvent): Boolean {
+        if (event.actionMasked == android.view.MotionEvent.ACTION_DOWN) buttonLights.touch()
+        return super.dispatchTouchEvent(event)
+    }
+    override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
+        if (event.action == android.view.KeyEvent.ACTION_DOWN) buttonLights.touch()
+        return super.dispatchKeyEvent(event)
+    }
     private fun loadAlbums() {
         if (!setupBusy.compareAndSet(false, true)) return
         setupGeneration.incrementAndGet()
@@ -359,7 +369,7 @@ class MainActivity : Activity() {
             } catch (e: Exception) { setupMessage = "Import failed: ${safeMessage(e)}. The previously saved session was kept." }
             finally { setupBusy.set(false) }
         }
-        return "Import started. Return to frame settings to see progress and choose your album."
+        return "Import started. Progress and your album list will update here."
     }
 
     private fun remotePage(): String {
@@ -367,10 +377,10 @@ class MainActivity : Activity() {
         fun checked(name: String, default: Boolean = false) = if (prefs.getBoolean(name, default)) "checked" else ""
         val options = availableAlbums.joinToString("") { a -> "<option value=\"${esc(a.id)}\" ${if (a.id == albumId) "selected" else ""}>${esc(a.title)} (${a.count} items)</option>" }
         return """<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>FrameRevive</title>
-        ${if (setupBusy.get() || albumSwitching) "<meta http-equiv='refresh' content='4'>" else ""}
-        <style>body{font:17px system-ui;background:#111923;color:#edf2f7;max-width:560px;margin:32px auto;padding:20px}h1{margin-bottom:8px}p{color:#bcc9d6;line-height:1.5}label{display:block;margin:20px 0}input,button{font:inherit;padding:10px;border-radius:8px}button{background:#b6e0bb;color:#102316;border:0;margin:8px 8px 8px 0}small{color:#aebdcd}</style></head><body>
-        <h1>FrameRevive</h1><p>${esc(title)} · ${photos.size} photos<br>Newest photos + memories from around today's date.</p>
-        <h2>Google Photos</h2><p>${esc(setupMessage)}</p>
+        
+        <style>body{font:17px system-ui;background:#111923;color:#edf2f7;max-width:560px;margin:32px auto;padding:20px}h1{margin-bottom:8px}p{color:#bcc9d6;line-height:1.5}label{display:block;margin:20px 0}input,button{font:inherit;padding:10px;border-radius:8px}button{background:#b6e0bb;color:#102316;border:0;margin:8px 8px 8px 0}small{color:#aebdcd}button:disabled{opacity:.7;cursor:wait}button[aria-busy=true]:before{content:"";display:inline-block;width:12px;height:12px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;margin-right:8px;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}</style></head><body>
+        <h1>FrameRevive <small>0.5.2-alpha</small></h1><p id="albumSummary">${esc(title)} · ${photos.size} photos<br>Newest photos + memories from around today's date.</p>
+        <h2>Google Photos</h2><p id="setupStatus" data-busy="${setupBusy.get() || albumSwitching || syncing.get()}">${esc(setupMessage)}</p>
         <details ${if (availableAlbums.isEmpty()) "open" else ""}><summary>Connect or renew Google Photos</summary>
         <p>Sign in only on Google's own website. This setup imports a local session export; it is not Google's official Sign in button.</p>
         <ol><li>On your computer, install <a href="https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc" target="_blank" rel="noreferrer">Get cookies.txt LOCALLY</a> and allow it in Incognito.</li>
@@ -380,7 +390,7 @@ class MainActivity : Activity() {
         <p><small>Use this page on trusted home Wi-Fi. The file contains sign-in credentials. It is sent only to your frame, filtered to Google Photos cookies, validated, and stored encrypted there. Never share it with your friend or upload it to GitHub. You can delete your export after successful setup.</small></p>
         <input id="sessionFile" type="file" accept=".txt,text/plain"><button type="button" id="importButton">Import session</button><p id="importResult" role="status"></p></details>
         <form method="post"><button name="action" value="loadAlbums">Load albums</button></form>
-        ${if (availableAlbums.isNotEmpty()) "<form method='post'><label>Display album <select name='albumId'>$options</select></label><button name='action' value='selectAlbum'>Use this album</button></form>" else ""}
+        <div id="albumPicker">${if (availableAlbums.isNotEmpty()) "<form method='post'><label>Display album <select name='albumId'>$options</select></label><button name='action' value='selectAlbum'>Use this album</button></form>" else ""}</div>
         <hr><h2>Display settings</h2>
         <form method="post"><label>Seconds per photo <input type="number" min="10" max="300" name="seconds" value="${prefs.getInt("seconds",30)}"></label>
         <label>Daytime brightness (percent) <input type="number" min="5" max="100" name="brightness" value="${prefs.getInt("brightness",55)}"></label>
@@ -390,25 +400,58 @@ class MainActivity : Activity() {
         <label><input type="checkbox" name="crop" ${checked("crop")}> Fill screen (crop photo edges)</label>
         <label><input type="checkbox" name="date" ${checked("date",true)}> Show capture date</label>
         <button name="action" value="save">Save settings</button><button name="action" value="next">Next photo</button><button name="action" value="refresh">Refresh album</button></form>
-        <p>Album checks run hourly. All photos stay managed in Google Photos. These controls work on your home Wi-Fi while the frame is awake.</p>
+        <p id="actionResult" role="status" aria-live="polite"></p><p>Album checks run hourly. All photos stay managed in Google Photos. These controls work on your home Wi-Fi while the frame is awake.</p>
         <small>Screen control: ${if (FramePower.hasScreenControl(this)) "hardware sleep enabled" else "dim-to-black only"}. Times use the frame's local timezone. Keep this private management link bookmarked.</small>
-        <p><small>Last power event: ${esc(prefs.getString("lastPowerEvent","No scheduled event recorded yet")!!)}.<br>Next wake: ${if(prefs.contains("nextWAKE")) esc(java.text.DateFormat.getDateTimeInstance().format(java.util.Date(prefs.getLong("nextWAKE",0)))) else "schedule disabled"}</small></p>
-        <script>document.getElementById('importButton').addEventListener('click',async function(){
-        const result=document.getElementById('importResult');const file=document.getElementById('sessionFile').files[0];
-        if(!file){result.textContent='Choose your exported cookies.txt file first.';return;}
-        if(file.size>200000){result.textContent='That file is too large. Export a dedicated Google Photos session.';return;}
-        this.disabled=true;result.textContent='Sending session directly to your frame…';
-        try{const body=new URLSearchParams({action:'importSession',session:await file.text()});
-        const response=await fetch(location.href,{method:'POST',body:body,cache:'no-store'});
-        if(!response.ok)throw new Error('Frame rejected the request.');location.reload();}
-        catch(error){result.textContent='Import could not be sent. Check your connection and try again.';this.disabled=false;}
-        });</script></body></html>""".trimIndent()
+        <p id="powerStatus"><small>Last power event: ${esc(prefs.getString("lastPowerEvent","No scheduled event recorded yet")!!)}.<br>Next wake: ${if(prefs.contains("nextWAKE")) esc(java.text.DateFormat.getDateTimeInstance().format(java.util.Date(prefs.getLong("nextWAKE",0)))) else "schedule disabled"}</small></p>
+        <script>
+        const result=document.getElementById('actionResult');let sending=false;let timer;
+        function busy(button,on){button.disabled=on;button.setAttribute('aria-busy',String(on));}
+        async function updateStatus(){
+          const response=await fetch(location.href,{cache:'no-store'});
+          if(!response.ok)throw new Error('Could not read frame status.');
+          const page=new DOMParser().parseFromString(await response.text(),'text/html');
+          for(const id of ['setupStatus','albumSummary','albumPicker','powerStatus']){
+            const fresh=page.getElementById(id),current=document.getElementById(id);
+            if(fresh&&current){
+              if(id==='albumPicker'&&document.activeElement&&current.contains(document.activeElement))continue;
+              if(current.outerHTML!==fresh.outerHTML)current.replaceWith(fresh);
+            }
+          }
+          clearTimeout(timer);
+          if(document.getElementById('setupStatus').dataset.busy==='true')timer=setTimeout(poll,4000);
+        }
+        async function poll(){try{await updateStatus();}catch(error){result.textContent='Status update interrupted. Retrying…';timer=setTimeout(poll,5000);}}
+        async function send(body,button){
+          if(sending)return;sending=true;busy(button,true);result.textContent='Sending…';
+          try{
+            const response=await fetch(location.href,{method:'POST',body,cache:'no-store'});
+            if(!response.ok)throw new Error('Frame rejected the request.');
+            const reply=new DOMParser().parseFromString(await response.text(),'text/html');
+            result.textContent=reply.querySelector('p')?.textContent||'Request received.';
+            await updateStatus();timer=setTimeout(poll,1500);
+          }catch(error){result.textContent='Could not confirm the request. Check your connection before retrying.';}
+          finally{sending=false;busy(button,false);}
+        }
+        document.addEventListener('submit',function(event){
+          event.preventDefault();const button=event.submitter;if(!button)return;
+          const body=new URLSearchParams(new FormData(event.target));body.set(button.name,button.value);send(body,button);
+        });
+        document.getElementById('importButton').addEventListener('click',async function(){
+          if(sending)return;
+          const file=document.getElementById('sessionFile').files[0];
+          if(!file){result.textContent='Choose your exported cookies.txt file first.';return;}
+          if(file.size>200000){result.textContent='That file is too large. Export a dedicated Google Photos session.';return;}
+          try{await send(new URLSearchParams({action:'importSession',session:await file.text()}),this);}
+          catch(error){result.textContent='Could not read the selected file.';}
+        });
+        if(document.getElementById('setupStatus').dataset.busy==='true')timer=setTimeout(poll,4000);
+        </script></body></html>""".trimIndent()
     }
     private fun applyRemote(fields: Map<String, String>): String {
         return try {
             when (fields["action"]) {
                 "importSession" -> importSession(fields["session"] ?: "")
-                "loadAlbums" -> { loadAlbums(); "Reading your albums. Return to the frame settings page." }
+                "loadAlbums" -> { loadAlbums(); "Reading your albums. The album list will update here." }
                 "selectAlbum" -> {
                     if (setupBusy.get()) return "Google setup is still running. Wait for the album list to finish loading."
                     val selected = availableAlbums.firstOrNull { it.id == fields["albumId"] }

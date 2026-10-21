@@ -68,3 +68,10 @@ Build, 21 unit tests, and lint passed. The updated frame woke without a key even
 Unit tests cover seasonal selection, calendar-year boundaries, leap day, newly added older photos, overnight/daytime schedule boundaries, cookie filtering/expiry/format limits, management authentication, cross-origin write rejection, and session-upload size handling. Build, unit tests, and Android lint passed. Device checks confirmed image playback, all album pages and dates, authenticated LAN management, real display-off/automatic wake, Home startup after reboot, rejection of invalid imports without replacing a working session, and guided setup with no saved session or album seed.
 
 Still outstanding: a real new-photo addition test, long-term session survival, and testing the installer on another owner's frame/account. Offline playback covers downloaded photos only. The newest-photo pool size and seasonal window are currently code settings. This alpha is intended for the tested Android 10 frame; other Android versions have not been validated.
+
+
+## 0.5.2 controls and button lights
+
+Management buttons stay on the controls page, show a spinner while sending, and report results inline. Setup and album status update in the background without replacing unsaved display settings. A connection failure may mean the command arrived but its response was lost; check the frame before retrying.
+
+On the tested Lenovo firmware, the native app controls the separate `led` system service. Front button lights are off when idle and illuminate at full button brightness for eight seconds after a proximity or input event. The proximity listener is removed and LEDs switched off when the activity pauses. No screen brightness or sleep/wake policy changes are part of this feature. Other firmware may not expose the service; photo playback continues without it.

@@ -2,6 +2,8 @@
 
 This alpha is for the Lenovo Smart Frame CD-3L501F running Android 10. It replaces the discontinued Lenovo photo app with a standalone Google Photos slideshow. It does not require root or a factory reset.
 
+Version 0.5.2-alpha adds controls that stay on the page and front button lights that turn off when idle, lighting briefly on proximity or interaction. To upgrade an existing installation, run this installer with the new APK; do not uninstall first.
+
 ## 1. Prepare the frame
 
 - Keep it powered and connected to your home Wi-Fi.
