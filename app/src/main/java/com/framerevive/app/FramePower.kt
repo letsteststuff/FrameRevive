@@ -15,6 +15,13 @@ import java.time.ZonedDateTime
 class FrameAdminReceiver : DeviceAdminReceiver()
 
 object FramePower {
+    const val WAKE = "com.framerevive.WAKE"
+    const val SLEEP = "com.framerevive.SLEEP"
+    fun record(context: Context, message: String) {
+        context.getSharedPreferences("frame-settings", Context.MODE_PRIVATE).edit()
+            .putString("lastPowerEvent", message).putLong("lastPowerEventAt", System.currentTimeMillis()).apply()
+        android.util.Log.i("FrameRevivePower", message)
+    }
     fun shouldSleep(context: Context): Boolean {
         val p = context.getSharedPreferences("frame-settings", Context.MODE_PRIVATE)
         return p.getBoolean("schedule", false) && FrameSchedule.isSleeping(LocalTime.now(),
@@ -23,7 +30,10 @@ object FramePower {
     fun hasScreenControl(context: Context): Boolean = context.getSystemService(DevicePolicyManager::class.java)
         .isAdminActive(ComponentName(context, FrameAdminReceiver::class.java))
     fun sleep(context: Context) {
-        if (hasScreenControl(context)) context.getSystemService(DevicePolicyManager::class.java).lockNow()
+        if (hasScreenControl(context)) {
+            record(context, "Display sleep requested")
+            context.getSystemService(DevicePolicyManager::class.java).lockNow()
+        }
     }
     @Suppress("DEPRECATION")
     fun wake(context: Context) {
@@ -37,16 +47,26 @@ object FramePower {
         val alarm = context.getSystemService(AlarmManager::class.java)
         for ((code, name, setting, default) in listOf(
             listOf("1", "SLEEP", "sleepStart", "22:00"), listOf("2", "WAKE", "sleepEnd", "07:00"))) {
-            val intent = Intent(context, FrameScheduleReceiver::class.java).setAction("com.framerevive.$name")
-            val pending = PendingIntent.getBroadcast(context, code.toInt(), intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+            // Cancel alarms from 0.5, which depended on a manifest receiver the frame
+            // skipped while asleep. The system now launches our activity directly.
+            val legacy = PendingIntent.getBroadcast(context, code.toInt(), Intent(context, FrameScheduleReceiver::class.java)
+                .setAction("com.framerevive.$name"), PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE)
+            if (legacy != null) { alarm.cancel(legacy); legacy.cancel() }
+            val intent = Intent(context, MainActivity::class.java).setAction("com.framerevive.$name")
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            val pending = PendingIntent.getActivity(context, code.toInt(), intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
             alarm.cancel(pending)
             if (p.getBoolean("schedule", false)) {
                 val now = ZonedDateTime.now()
-                var next = now.with(LocalTime.parse(p.getString(setting, default))).withSecond(0).withNano(0)
-                if (!next.isAfter(now)) next = next.plusDays(1)
-                if (android.os.Build.VERSION.SDK_INT < 31 || alarm.canScheduleExactAlarms())
-                    alarm.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next.toInstant().toEpochMilli(), pending)
-                else alarm.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next.toInstant().toEpochMilli(), pending)
+                val next = FrameSchedule.nextOccurrence(now, LocalTime.parse(p.getString(setting, default)))
+                val whenMs = next.toInstant().toEpochMilli()
+                if (android.os.Build.VERSION.SDK_INT < 31 || alarm.canScheduleExactAlarms()) {
+                    if (name == "WAKE") alarm.setAlarmClock(AlarmManager.AlarmClockInfo(whenMs, pending), pending)
+                    else alarm.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, whenMs, pending)
+                } else alarm.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, whenMs, pending)
+                p.edit().putLong("next$name", whenMs).apply()
+            } else {
+                p.edit().remove("next$name").apply()
             }
         }
     }
@@ -54,6 +74,7 @@ object FramePower {
 
 class FrameScheduleReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        FramePower.record(context, "Schedule receiver: ${intent.action}")
         FramePower.schedule(context)
         when (intent.action) {
             "com.framerevive.SLEEP" -> if (FramePower.shouldSleep(context)) FramePower.sleep(context)

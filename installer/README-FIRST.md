@@ -55,4 +55,6 @@ This restores Lenovo's launcher, not its discontinued Google Photos connection. 
 
 ## Alpha limitations
 
+Use version 0.5.1 or later for the corrected wake path and daytime brightness control. Version 0.5 missed a morning wake on the test frame. The new direct-activity wake passed a background-idle test; another full overnight check is still needed.
+
 Photo playback, real screen-off/wake, and reboot startup were tested on one Lenovo Smart Frame. Refresh runs hourly while the app is running. Offline playback covers previously downloaded photos. Setup still needs testing on another person's frame and account. Long-term Google session durability is not established.

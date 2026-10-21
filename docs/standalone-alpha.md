@@ -59,6 +59,12 @@ Remove FrameRevive's device-administrator activation in Android settings before 
 
 ## Validation and known limits
 
+### Wake recovery in 0.5.1
+
+The 0.5 build missed a morning wake: Android fired the alarm but skipped its manifest broadcast receiver. The frame's old automatic-brightness setting was also at its minimum. Version 0.5.1 schedules the Home activity directly, uses an alarm-clock wake event, rearms future alarms on activity entry, and restores an explicit per-app daytime brightness (55% by default). The controls page exposes brightness, the last power event, and the next wake time. Legacy broadcast alarms are canceled during migration.
+
+Build, 21 unit tests, and lint passed. The updated frame woke without a key event after being put into background idle, restored its daytime brightness, and rearmed the following day's wake. Full overnight confirmation remains pending; the earlier short test did not establish overnight reliability.
+
 Unit tests cover seasonal selection, calendar-year boundaries, leap day, newly added older photos, overnight/daytime schedule boundaries, cookie filtering/expiry/format limits, management authentication, cross-origin write rejection, and session-upload size handling. Build, unit tests, and Android lint passed. Device checks confirmed image playback, all album pages and dates, authenticated LAN management, real display-off/automatic wake, Home startup after reboot, rejection of invalid imports without replacing a working session, and guided setup with no saved session or album seed.
 
 Still outstanding: a real new-photo addition test, long-term session survival, and testing the installer on another owner's frame/account. Offline playback covers downloaded photos only. The newest-photo pool size and seasonal window are currently code settings. This alpha is intended for the tested Android 10 frame; other Android versions have not been validated.

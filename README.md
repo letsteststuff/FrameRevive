@@ -2,7 +2,9 @@
 
 A standalone Android photo-frame app for the discontinued Lenovo Smart Frame (CD-3L501F, Android 10).
 
-## Current version: 0.5.0 alpha
+## Current version: 0.5.1 alpha
+
+Version 0.5.1 replaces skipped background wake broadcasts with direct activity alarms, restores the frame's own daytime brightness, and shows the next scheduled wake in the controls page. Version 0.5 missed an overnight wake on the tested frame. The replacement passed a background-idle wake test; full overnight confirmation is still pending.
 
 FrameRevive reads an existing private Google Photos album over the frame's Wi-Fi connection. It replaces Lenovo's frame launcher and does not require an always-on laptop or a publicly shared album.
 
@@ -11,6 +13,7 @@ FrameRevive reads an existing private Google Photos album over the frame's Wi-Fi
 - Newly discovered album additions join the recent pool even when their capture date is old.
 - Display-sized image caching, capped around 512 MiB, for previously viewed photos.
 - Configurable 10–300-second slideshow interval, fit/fill mode, and capture-date captions.
+- Daytime brightness control independent of Lenovo's abandoned automatic-light behavior.
 - Private LAN management page for a phone or computer on the same network.
 - Guided Google session import and renewal through that page; no ADB needed for account setup after installation.
 - Private-album picker that builds its own photo index. No seed file or someone else's account data is needed.

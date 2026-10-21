@@ -67,6 +67,7 @@ class MainActivity : Activity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         setShowWhenLocked(true)
         setTurnScreenOn(true)
+        window.attributes = window.attributes.apply { screenBrightness = FrameSchedule.awakeBrightness(prefs.getInt("brightness",55)) }
         window.decorView.systemUiVisibility = (View.SYSTEM_UI_FLAG_FULLSCREEN or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
             View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION)
         client = PrivatePhotosClient(this)
@@ -157,6 +158,7 @@ class MainActivity : Activity() {
         val start = field("Sleep from (24-hour HH:mm)", prefs.getString("sleepStart", "22:00")!!)
         val end = field("Wake at (24-hour HH:mm)", prefs.getString("sleepEnd", "07:00")!!)
         val seconds = field("Seconds per photo (10–300)", prefs.getInt("seconds", 30).toString())
+        val brightness = field("Daytime brightness (5–100 percent)", prefs.getInt("brightness",55).toString())
         val enabled = CheckBox(this).apply { text = "Enable nightly sleep schedule"; isChecked = prefs.getBoolean("schedule", false) }
         val crop = CheckBox(this).apply { text = "Fill screen (crop photo edges)"; isChecked = prefs.getBoolean("crop", false) }
         val date = CheckBox(this).apply { text = "Show photo date"; isChecked = prefs.getBoolean("date", true) }
@@ -169,9 +171,10 @@ class MainActivity : Activity() {
                     val a = LocalTime.parse(start.text.toString().trim()); val b = LocalTime.parse(end.text.toString().trim())
                     require(a != b) { "Sleep and wake times must differ." }
                     val sec = seconds.text.toString().toInt(); require(sec in 10..300) { "Choose 10–300 seconds." }
+                    val light = brightness.text.toString().toInt(); require(light in 5..100) { "Choose 5–100 percent brightness." }
                     prefs.edit().putString("sleepStart", a.toString()).putString("sleepEnd", b.toString())
                         .putBoolean("schedule", enabled.isChecked).putBoolean("crop", crop.isChecked)
-                        .putBoolean("date", date.isChecked).putInt("seconds", sec).apply()
+                        .putBoolean("date", date.isChecked).putInt("seconds", sec).putInt("brightness",light).apply()
                     image.scaleType = if (crop.isChecked) ImageView.ScaleType.CENTER_CROP else ImageView.ScaleType.FIT_CENTER
                     caption.visibility = if (date.isChecked) View.VISIBLE else View.GONE
                     FramePower.schedule(this); checkSchedule(); dialog.dismiss()
@@ -181,15 +184,20 @@ class MainActivity : Activity() {
         dialog.show()
     }
 
-    private fun checkSchedule() {
+    private fun checkSchedule(force: Boolean = false) {
         val now = LocalTime.now()
         val start = LocalTime.parse(prefs.getString("sleepStart", "22:00"))
         val end = LocalTime.parse(prefs.getString("sleepEnd", "07:00"))
         val shouldSleep = prefs.getBoolean("schedule", false) && FrameSchedule.isSleeping(now, start, end)
-        if (shouldSleep == sleeping) return
+        // Always restore our own daytime level; the abandoned ambient-light service
+        // can leave Android's global automatic brightness at its minimum overnight.
+        window.attributes = window.attributes.apply { screenBrightness = if (shouldSleep) 0f else FrameSchedule.awakeBrightness(prefs.getInt("brightness",55)) }
+        if (shouldSleep == sleeping) {
+            if (force && shouldSleep) FramePower.sleep(this)
+            return
+        }
         sleeping = shouldSleep
         night.visibility = if (sleeping) View.VISIBLE else View.GONE
-        window.attributes = window.attributes.apply { screenBrightness = if (sleeping) 0f else -1f }
         handler.removeCallbacks(advance)
         if (sleeping) { generation++; FramePower.sleep(this) } else if (active) showNext()
     }
@@ -303,7 +311,25 @@ class MainActivity : Activity() {
         is java.io.IOException -> "Network unavailable or Google could not be reached."
         else -> "Photo access needs attention (${e.javaClass.simpleName})."
     }
-    override fun onResume() { super.onResume(); active = true; checkSchedule(); showNext() }
+    override fun onNewIntent(newIntent: android.content.Intent) {
+        super.onNewIntent(newIntent)
+        setIntent(newIntent)
+        setShowWhenLocked(true)
+        setTurnScreenOn(true)
+        if (newIntent.action == FramePower.WAKE || newIntent.action == FramePower.SLEEP) {
+            FramePower.record(this, "Scheduled activity: ${newIntent.action}")
+            FramePower.schedule(this)
+            checkSchedule(force = true)
+        }
+    }
+    override fun onResume() {
+        super.onResume(); active = true
+        setShowWhenLocked(true); setTurnScreenOn(true)
+        if (intent.action == FramePower.WAKE || intent.action == FramePower.SLEEP)
+            FramePower.record(this, "Scheduled display resumed")
+        FramePower.schedule(this)
+        checkSchedule(force = true); showNext()
+    }
     override fun onPause() { super.onPause(); active = false; generation++; handler.removeCallbacks(advance) }
     private fun loadAlbums() {
         if (!setupBusy.compareAndSet(false, true)) return
@@ -357,6 +383,7 @@ class MainActivity : Activity() {
         ${if (availableAlbums.isNotEmpty()) "<form method='post'><label>Display album <select name='albumId'>$options</select></label><button name='action' value='selectAlbum'>Use this album</button></form>" else ""}
         <hr><h2>Display settings</h2>
         <form method="post"><label>Seconds per photo <input type="number" min="10" max="300" name="seconds" value="${prefs.getInt("seconds",30)}"></label>
+        <label>Daytime brightness (percent) <input type="number" min="5" max="100" name="brightness" value="${prefs.getInt("brightness",55)}"></label>
         <label><input type="checkbox" name="schedule" ${checked("schedule")}> Nightly sleep schedule</label>
         <label>Sleep at <input type="time" required name="sleepStart" value="${esc(prefs.getString("sleepStart","22:00")!!)}"></label>
         <label>Wake at <input type="time" required name="sleepEnd" value="${esc(prefs.getString("sleepEnd","07:00")!!)}"></label>
@@ -365,6 +392,7 @@ class MainActivity : Activity() {
         <button name="action" value="save">Save settings</button><button name="action" value="next">Next photo</button><button name="action" value="refresh">Refresh album</button></form>
         <p>Album checks run hourly. All photos stay managed in Google Photos. These controls work on your home Wi-Fi while the frame is awake.</p>
         <small>Screen control: ${if (FramePower.hasScreenControl(this)) "hardware sleep enabled" else "dim-to-black only"}. Times use the frame's local timezone. Keep this private management link bookmarked.</small>
+        <p><small>Last power event: ${esc(prefs.getString("lastPowerEvent","No scheduled event recorded yet")!!)}.<br>Next wake: ${if(prefs.contains("nextWAKE")) esc(java.text.DateFormat.getDateTimeInstance().format(java.util.Date(prefs.getLong("nextWAKE",0)))) else "schedule disabled"}</small></p>
         <script>document.getElementById('importButton').addEventListener('click',async function(){
         const result=document.getElementById('importResult');const file=document.getElementById('sessionFile').files[0];
         if(!file){result.textContent='Choose your exported cookies.txt file first.';return;}
@@ -396,9 +424,11 @@ class MainActivity : Activity() {
                     require(start != end) { "Choose different sleep and wake times." }
                     val seconds = fields["seconds"]?.toIntOrNull() ?: 30
                     require(seconds in 10..300) { "Choose 10 to 300 seconds per photo." }
+                    val brightness = fields["brightness"]?.toIntOrNull() ?: prefs.getInt("brightness",55)
+                    require(brightness in 5..100) { "Choose 5 to 100 percent brightness." }
                     prefs.edit().putString("sleepStart",start.toString()).putString("sleepEnd",end.toString())
                         .putBoolean("schedule",fields.containsKey("schedule")).putBoolean("crop",fields.containsKey("crop"))
-                        .putBoolean("date",fields.containsKey("date")).putInt("seconds",seconds).commit()
+                        .putBoolean("date",fields.containsKey("date")).putInt("seconds",seconds).putInt("brightness",brightness).commit()
                     FramePower.schedule(this)
                     handler.postDelayed({
                         if (!closed) {
