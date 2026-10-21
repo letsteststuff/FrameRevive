@@ -375,7 +375,7 @@ class MainActivity : Activity() {
     private fun remotePage(): String {
         fun esc(s: String) = FrameRemote.escape(s)
         fun checked(name: String, default: Boolean = false) = if (prefs.getBoolean(name, default)) "checked" else ""
-        val options = availableAlbums.joinToString("") { a -> "<option value=\"${esc(a.id)}\" ${if (a.id == albumId) "selected" else ""}>${esc(a.title)} (${a.count} items)</option>" }
+        val options = availableAlbums.joinToString("") { a -> "<option value=\"${esc(a.id)}\" ${if (a.id == albumId) "selected" else ""}>${esc(a.title)}</option>" }
         return """<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>FrameRevive</title>
         
         <style>body{font:17px system-ui;background:#111923;color:#edf2f7;max-width:560px;margin:32px auto;padding:20px}h1{margin-bottom:8px}p{color:#bcc9d6;line-height:1.5}label{display:block;margin:20px 0}input,button{font:inherit;padding:10px;border-radius:8px}button{background:#b6e0bb;color:#102316;border:0;margin:8px 8px 8px 0}small{color:#aebdcd}button:disabled{opacity:.7;cursor:wait}button[aria-busy=true]:before{content:"";display:inline-block;width:12px;height:12px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;margin-right:8px;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}</style></head><body>
