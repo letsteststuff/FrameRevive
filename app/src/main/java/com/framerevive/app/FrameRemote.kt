@@ -7,9 +7,10 @@ import java.util.concurrent.Executors
 
 /** LAN-only management. A random per-install secret is required on every request. */
 class FrameRemote(private val token: String, private val page: () -> String,
-                  private val apply: (Map<String, String>) -> String) : AutoCloseable {
+                  private val apply: (Map<String, String>) -> String, port: Int = 8765) : AutoCloseable {
     private val worker = Executors.newSingleThreadExecutor()
-    private val server = ServerSocket(8765).apply { soTimeout = 1000 }
+    private val server = ServerSocket(port).apply { soTimeout = 1000 }
+    val port: Int get() = server.localPort
     @Volatile private var closed = false
     init {
         worker.execute {
@@ -48,7 +49,7 @@ class FrameRemote(private val token: String, private val page: () -> String,
         if (request[0] == "GET") { reply(socket, 200, page()); return }
         if (request[0] != "POST") { reply(socket, 405, "Method not supported."); return }
         val length = headers["content-length"]?.toIntOrNull() ?: 0
-        if (length !in 1..4096) { reply(socket, 400, "Invalid form."); return }
+        if (length !in 1..800_000) { reply(socket, 400, "Form is too large. Choose a small cookies.txt export."); return }
         val bytes = ByteArray(length)
         var read = 0
         while (read < length) { val n = input.read(bytes, read, length - read); if (n < 0) error("Incomplete form"); read += n }
@@ -60,7 +61,7 @@ class FrameRemote(private val token: String, private val page: () -> String,
     }
     private fun reply(socket: Socket, code: Int, html: String) {
         val bytes = html.toByteArray(Charsets.UTF_8)
-        val header = "HTTP/1.1 $code Response\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: ${bytes.size}\r\nCache-Control: no-store\r\nReferrer-Policy: no-referrer\r\nX-Frame-Options: DENY\r\nContent-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'\r\nConnection: close\r\n\r\n"
+        val header = "HTTP/1.1 $code Response\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: ${bytes.size}\r\nCache-Control: no-store\r\nReferrer-Policy: no-referrer\r\nX-Frame-Options: DENY\r\nContent-Security-Policy: default-src 'none'; script-src 'unsafe-inline'; connect-src 'self'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'\r\nConnection: close\r\n\r\n"
         socket.getOutputStream().apply { write(header.toByteArray()); write(bytes); flush() }
     }
     override fun close() { closed = true; server.close(); worker.shutdownNow() }

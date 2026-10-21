@@ -2,7 +2,7 @@
 
 A standalone Android photo-frame app for the discontinued Lenovo Smart Frame (CD-3L501F, Android 10).
 
-## Current version: 0.4.0 alpha
+## Current version: 0.5.0 alpha
 
 FrameRevive reads an existing private Google Photos album over the frame's Wi-Fi connection. It replaces Lenovo's frame launcher and does not require an always-on laptop or a publicly shared album.
 
@@ -12,11 +12,19 @@ FrameRevive reads an existing private Google Photos album over the frame's Wi-Fi
 - Display-sized image caching, capped around 512 MiB, for previously viewed photos.
 - Configurable 10–300-second slideshow interval, fit/fill mode, and capture-date captions.
 - Private LAN management page for a phone or computer on the same network.
+- Guided Google session import and renewal through that page; no ADB needed for account setup after installation.
+- Private-album picker that builds its own photo index. No seed file or someone else's account data is needed.
 - Configurable nightly display-off and automatic wake using Android alarms and a device-admin policy limited to screen locking.
 - Default Home launcher support for startup after reboot.
 - Google session encryption using Android Keystore; app backups disabled.
 
-**This is an alpha.** Google Photos access uses an unofficial, reverse-engineered signed-in web interface. Google may change it or expire the session. Setup and session renewal currently require technical steps over ADB; there is no finished onboarding or reauthorization flow. Do not publish cookie exports, album indexes, cached photos, private management URLs, or app-data backups.
+**This is an alpha.** Google Photos access uses an unofficial, reverse-engineered signed-in web interface. Google may change it or expire the session. Initial installation requires ADB; account connection and renewal use a guided local session-file import, rather than Google's official Sign in button. Do not publish cookie exports, album indexes, cached photos, private management URLs, or app-data backups.
+
+## Install on your own frame
+
+See [installer/README-FIRST.md](installer/README-FIRST.md). The Windows installer locates ADB, installs the APK, enables the launcher and screen-power controls, and opens the setup page. Each owner imports their own session and selects their own album. Runtime account data and private management links are never part of the shared installer.
+
+If building from source, copy `app/build/outputs/apk/debug/app-debug.apk` to `installer/FrameRevive.apk` before running the installer. That binary and installer-generated `local/` files are intentionally ignored by Git. The project has not been tested across multiple owners' frames yet.
 
 ## Architecture
 
@@ -30,7 +38,7 @@ Use Android Studio's JDK 21, the Android SDK, and the checked-in Gradle wrapper:
 .\gradlew.bat :app:assembleDebug :app:testDebugUnitTest :app:lintDebug
 ```
 
-The alpha was built and tested on a Lenovo Smart Frame running Android 10. Hardware checks covered private-album reading, image display, LAN management authentication, display-off/automatic wake, and startup after reboot. A newly added album photo still needs an end-to-end addition test, and long-term session durability is not established.
+The alpha was built and tested on a Lenovo Smart Frame running Android 10. Hardware checks covered private-album reading, image display, LAN management authentication, display-off/automatic wake, startup after reboot, and guided setup without a saved album index or session. A newly added album photo still needs an end-to-end addition test, and long-term session durability is not established.
 
 See [alpha setup and recovery notes](docs/standalone-alpha.md). The Python [read-only access probe](tools/probe_google_photos.py) uses only the standard library and requires a locally exported Netscape cookies file. Never paste cookies into chat, issues, or pull requests.
 

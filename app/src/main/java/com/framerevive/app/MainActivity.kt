@@ -47,6 +47,12 @@ class MainActivity : Activity() {
     private var failures = 0
     private var remote: FrameRemote? = null
     private var manageUrl = ""
+    @Volatile private var availableAlbums = emptyList<PrivatePhotosClient.Album>()
+    @Volatile private var setupMessage = "Import your Google Photos session, then choose an album."
+    private val setupBusy = AtomicBoolean(false)
+    private val setupGeneration = java.util.concurrent.atomic.AtomicInteger(0)
+    private var pendingAlbum: PrivatePhotosClient.Album? = null
+    @Volatile private var albumSwitching = false
     private val advance = Runnable { showNext() }
     private val hide = Runnable { if (displayed) controls.visibility = View.GONE }
     private val refresh = object : Runnable {
@@ -122,6 +128,7 @@ class MainActivity : Activity() {
             remote = FrameRemote(token, { remotePage() }, { fields -> applyRemote(fields) })
         } catch (_: Exception) { status.append("\nPhone management could not start.") }
         FramePower.schedule(this)
+        if (File(filesDir, "google-session.enc").exists()) loadAlbums()
         handler.post(refresh)
         handler.post(clock)
     }
@@ -246,30 +253,48 @@ class MainActivity : Activity() {
             }
         }
     }
-    private fun sync() {
-        if (albumId.isBlank() || !syncing.compareAndSet(false, true)) return
-        status.text = "$title · checking Google Photos…"
+    private fun sync(targetId: String = albumId, targetTitle: String = title) {
+        if (targetId.isBlank() || !syncing.compareAndSet(false, true)) return
+        val statusGeneration = setupGeneration.get()
+        albumSwitching = targetId != albumId
+        if (!setupBusy.get()) setupMessage = "Loading $targetTitle. The existing slideshow continues until it is ready."
+        status.text = "$targetTitle · checking Google Photos…"
         network.execute {
             try {
+                val changingAlbum = targetId != albumId
                 val existing = photos.associateBy { it.id }
                 val discovered = System.currentTimeMillis()
-                val fresh = client.sync(albumId) { count -> handler.post { if (!closed) status.text = "$title · reading $count photos…" } }
-                    .map { p -> p.copy(discoveredMs = existing[p.id]?.discoveredMs ?: discovered) }
+                val fresh = client.sync(targetId) { count ->
+                    if (albumSwitching && setupGeneration.get() == statusGeneration) setupMessage = "Reading $targetTitle: $count photos…"
+                    handler.post { if (!closed) status.text = "$targetTitle · reading $count photos…" }
+                }
+                    .map { p -> p.copy(discoveredMs = if (changingAlbum) 0 else existing[p.id]?.discoveredMs ?: discovered) }
                 val rows = JSONArray()
                 fresh.forEach { p -> rows.put(JSONObject().put("id", p.id).put("url", p.url).put("takenMs", p.takenMs).put("offsetMs", p.offsetMs).put("discoveredMs",p.discoveredMs)) }
-                saveCatalog(JSONObject().put("albumId", albumId).put("title", title).put("photos", rows).put("syncedAt", System.currentTimeMillis()))
+                saveCatalog(JSONObject().put("albumId", targetId).put("title", targetTitle).put("photos", rows).put("syncedAt", System.currentTimeMillis()))
                 val valid = fresh.map { cached(it).name }.toHashSet()
                 File(filesDir, "photo-cache").listFiles()?.filter { it.extension == "jpg" && it.name !in valid }?.forEach { it.delete() }
                 handler.post {
                     if (!closed) {
-                        photos = fresh; rebuild()
+                        albumId = targetId; title = targetTitle; photos = fresh; rebuild()
+                        if (setupGeneration.get() == statusGeneration)
+                            setupMessage = "Connected. Displaying $targetTitle (${fresh.size} photos)."
                         status.text = "$title · ${fresh.size} photos\nUpdated ${java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date())} · checks hourly"
-                        if (!displayed && active) showNext()
+                        if ((!displayed || changingAlbum) && active) showNext()
                     }
                 }
             } catch (e: Exception) {
+                if (setupGeneration.get() == statusGeneration)
+                    setupMessage = "Could not update album: ${safeMessage(e)}. Your previous album remains selected."
                 handler.post { if (!closed) status.text = "$title\n${safeMessage(e)}\nKeeping the last complete photo index." }
-            } finally { syncing.set(false) }
+            } finally {
+                syncing.set(false)
+                handler.post {
+                    albumSwitching = false
+                    val next = pendingAlbum; pendingAlbum = null
+                    if (!closed && next != null) sync(next.id, next.title)
+                }
+            }
         }
     }
     private fun safeMessage(e: Exception): String = when (e) {
@@ -280,12 +305,57 @@ class MainActivity : Activity() {
     }
     override fun onResume() { super.onResume(); active = true; checkSchedule(); showNext() }
     override fun onPause() { super.onPause(); active = false; generation++; handler.removeCallbacks(advance) }
+    private fun loadAlbums() {
+        if (!setupBusy.compareAndSet(false, true)) return
+        setupGeneration.incrementAndGet()
+        setupMessage = "Reading your Google Photos albums…"
+        network.execute {
+            try {
+                availableAlbums = client.albums()
+                setupMessage = if (availableAlbums.isEmpty()) "Connected, but no albums were found. Create an album in Google Photos, then load albums again."
+                    else "Connected. ${availableAlbums.size} albums available. Choose one below."
+            } catch (e: Exception) { setupMessage = "Could not read albums: ${safeMessage(e)}. Import a fresh session if needed." }
+            finally { setupBusy.set(false) }
+        }
+    }
+
+    private fun importSession(text: String): String {
+        if (!setupBusy.compareAndSet(false, true)) return "Google setup is already running. Wait for it to finish."
+        setupGeneration.incrementAndGet()
+        setupMessage = "Checking the uploaded Google Photos session…"
+        network.execute {
+            try {
+                val (connected, albums) = client.validateSession(text)
+                client = connected
+                availableAlbums = albums
+                setupMessage = if (albums.isEmpty()) "Session verified and encrypted. No albums found; create one in Google Photos and load albums again."
+                    else "Session verified and encrypted on this frame. Choose an album below."
+            } catch (e: Exception) { setupMessage = "Import failed: ${safeMessage(e)}. The previously saved session was kept." }
+            finally { setupBusy.set(false) }
+        }
+        return "Import started. Return to frame settings to see progress and choose your album."
+    }
+
     private fun remotePage(): String {
         fun esc(s: String) = FrameRemote.escape(s)
         fun checked(name: String, default: Boolean = false) = if (prefs.getBoolean(name, default)) "checked" else ""
+        val options = availableAlbums.joinToString("") { a -> "<option value=\"${esc(a.id)}\" ${if (a.id == albumId) "selected" else ""}>${esc(a.title)} (${a.count} items)</option>" }
         return """<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>FrameRevive</title>
+        ${if (setupBusy.get() || albumSwitching) "<meta http-equiv='refresh' content='4'>" else ""}
         <style>body{font:17px system-ui;background:#111923;color:#edf2f7;max-width:560px;margin:32px auto;padding:20px}h1{margin-bottom:8px}p{color:#bcc9d6;line-height:1.5}label{display:block;margin:20px 0}input,button{font:inherit;padding:10px;border-radius:8px}button{background:#b6e0bb;color:#102316;border:0;margin:8px 8px 8px 0}small{color:#aebdcd}</style></head><body>
         <h1>FrameRevive</h1><p>${esc(title)} · ${photos.size} photos<br>Newest photos + memories from around today's date.</p>
+        <h2>Google Photos</h2><p>${esc(setupMessage)}</p>
+        <details ${if (availableAlbums.isEmpty()) "open" else ""}><summary>Connect or renew Google Photos</summary>
+        <p>Sign in only on Google's own website. This setup imports a local session export; it is not Google's official Sign in button.</p>
+        <ol><li>On your computer, install <a href="https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc" target="_blank" rel="noreferrer">Get cookies.txt LOCALLY</a> and allow it in Incognito.</li>
+        <li>In a new Incognito window, sign in at <a href="https://photos.google.com/" target="_blank" rel="noreferrer">Google Photos</a> and open your library.</li>
+        <li>Open a blank tab, close the Google Photos tab, and use the extension's <strong>Export All Cookies</strong> button. Choose Netscape format.</li>
+        <li>Close Incognito. Select the exported file below, then import it.</li></ol>
+        <p><small>Use this page on trusted home Wi-Fi. The file contains sign-in credentials. It is sent only to your frame, filtered to Google Photos cookies, validated, and stored encrypted there. Never share it with your friend or upload it to GitHub. You can delete your export after successful setup.</small></p>
+        <input id="sessionFile" type="file" accept=".txt,text/plain"><button type="button" id="importButton">Import session</button><p id="importResult" role="status"></p></details>
+        <form method="post"><button name="action" value="loadAlbums">Load albums</button></form>
+        ${if (availableAlbums.isNotEmpty()) "<form method='post'><label>Display album <select name='albumId'>$options</select></label><button name='action' value='selectAlbum'>Use this album</button></form>" else ""}
+        <hr><h2>Display settings</h2>
         <form method="post"><label>Seconds per photo <input type="number" min="10" max="300" name="seconds" value="${prefs.getInt("seconds",30)}"></label>
         <label><input type="checkbox" name="schedule" ${checked("schedule")}> Nightly sleep schedule</label>
         <label>Sleep at <input type="time" required name="sleepStart" value="${esc(prefs.getString("sleepStart","22:00")!!)}"></label>
@@ -294,11 +364,33 @@ class MainActivity : Activity() {
         <label><input type="checkbox" name="date" ${checked("date",true)}> Show capture date</label>
         <button name="action" value="save">Save settings</button><button name="action" value="next">Next photo</button><button name="action" value="refresh">Refresh album</button></form>
         <p>Album checks run hourly. All photos stay managed in Google Photos. These controls work on your home Wi-Fi while the frame is awake.</p>
-        <small>Screen control: ${if (FramePower.hasScreenControl(this)) "hardware sleep enabled" else "dim-to-black only"}. Times use the frame's local timezone. Keep this private management link bookmarked.</small></body></html>""".trimIndent()
+        <small>Screen control: ${if (FramePower.hasScreenControl(this)) "hardware sleep enabled" else "dim-to-black only"}. Times use the frame's local timezone. Keep this private management link bookmarked.</small>
+        <script>document.getElementById('importButton').addEventListener('click',async function(){
+        const result=document.getElementById('importResult');const file=document.getElementById('sessionFile').files[0];
+        if(!file){result.textContent='Choose your exported cookies.txt file first.';return;}
+        if(file.size>200000){result.textContent='That file is too large. Export a dedicated Google Photos session.';return;}
+        this.disabled=true;result.textContent='Sending session directly to your frame…';
+        try{const body=new URLSearchParams({action:'importSession',session:await file.text()});
+        const response=await fetch(location.href,{method:'POST',body:body,cache:'no-store'});
+        if(!response.ok)throw new Error('Frame rejected the request.');location.reload();}
+        catch(error){result.textContent='Import could not be sent. Check your connection and try again.';this.disabled=false;}
+        });</script></body></html>""".trimIndent()
     }
     private fun applyRemote(fields: Map<String, String>): String {
         return try {
             when (fields["action"]) {
+                "importSession" -> importSession(fields["session"] ?: "")
+                "loadAlbums" -> { loadAlbums(); "Reading your albums. Return to the frame settings page." }
+                "selectAlbum" -> {
+                    if (setupBusy.get()) return "Google setup is still running. Wait for the album list to finish loading."
+                    val selected = availableAlbums.firstOrNull { it.id == fields["albumId"] }
+                        ?: return "That album is not in the current list. Load albums and try again."
+                    handler.post {
+                        if (syncing.get()) { pendingAlbum = selected; setupMessage = "Your album switch is queued after the current refresh." }
+                        else sync(selected.id, selected.title)
+                    }
+                    "Loading the selected album. Your current slideshow continues until the new album is ready."
+                }
                 "save" -> {
                     val start = LocalTime.parse(fields["sleepStart"]); val end = LocalTime.parse(fields["sleepEnd"])
                     require(start != end) { "Choose different sleep and wake times." }

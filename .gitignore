@@ -31,3 +31,5 @@ web/dist/
 *.keystore
 *.jks
 /app/src/main/res/drawable/test.jpg
+/installer/local/
+/installer/FrameRevive.apk

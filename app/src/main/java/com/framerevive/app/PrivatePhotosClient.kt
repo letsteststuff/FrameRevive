@@ -19,9 +19,10 @@ import javax.crypto.spec.GCMParameterSpec
 // Read-only wire format adapted from xob0t/google_photos_web_client (MIT).
 // See tools/GOOGLE_PHOTOS_CLIENT_LICENSE.txt. This web API is unofficial.
 class PrivatePhotosClient(private val context: Context) {
-    data class Cookie(val domain: String, val path: String, val name: String, val value: String, val expires: Long)
+    data class Album(val id: String, val title: String, val count: Int)
     private val cookieFile = File(context.filesDir, "google-session.enc")
-    private var cookies = mutableListOf<Cookie>()
+    private var cookies = mutableListOf<GoogleSessionCookie>()
+    private var persistCookies = true
     private var global: JSONObject? = null
 
     private fun key(): SecretKey {
@@ -36,16 +37,7 @@ class PrivatePhotosClient(private val context: Context) {
     @Synchronized fun importSessionIfPresent() {
         val incoming = File(context.filesDir, "session-import.txt")
         if (incoming.exists()) {
-            val parsed = incoming.readLines().mapNotNull { line ->
-                val clean = line.removePrefix("#HttpOnly_")
-                if (clean.startsWith("#") || clean.isBlank()) return@mapNotNull null
-                val cols = clean.split('\t')
-                if (cols.size < 7) return@mapNotNull null
-                val domain = cols[0].removePrefix(".")
-                if (domain !in setOf("google.com", "photos.google.com", "photos.fife.usercontent.google.com")) return@mapNotNull null
-                Cookie(cols[0], cols[2], cols[5], cols[6], cols[4].toLongOrNull() ?: 0)
-            }
-            require(parsed.isNotEmpty()) { "No Google Photos session found in import." }
+            val parsed = GoogleSessionCookies.parse(incoming.readText())
             cookies = parsed.toMutableList()
             saveCookies()
             check(incoming.delete()) { "Session saved, but import file could not be removed." }
@@ -56,12 +48,13 @@ class PrivatePhotosClient(private val context: Context) {
             val json = JSONArray(String(cipher.doFinal(bytes.copyOfRange(12, bytes.size)), Charsets.UTF_8))
             cookies = (0 until json.length()).map { i ->
                 val c = json.getJSONObject(i)
-                Cookie(c.getString("domain"), c.getString("path"), c.getString("name"), c.getString("value"), c.getLong("expires"))
+                GoogleSessionCookie(c.getString("domain"), c.getString("path"), c.getString("name"), c.getString("value"), c.getLong("expires"))
             }.toMutableList()
         }
     }
 
     @Synchronized private fun saveCookies() {
+        if (!persistCookies) return
         val json = JSONArray()
         cookies.forEach { c -> json.put(JSONObject().put("domain", c.domain).put("path", c.path)
             .put("name", c.name).put("value", c.value).put("expires", c.expires)) }
@@ -139,7 +132,7 @@ class PrivatePhotosClient(private val context: Context) {
     }
 
     fun connect() {
-        importSessionIfPresent()
+        if (cookies.isEmpty()) importSessionIfPresent()
         check(cookies.isNotEmpty()) { "Waiting for local Google session setup." }
         val html = String(request("https://photos.google.com/"), Charsets.UTF_8)
         val text = Regex("window\\.WIZ_global_data\\s*=\\s*(\\{.*?\\})\\s*;", RegexOption.DOT_MATCHES_ALL)
@@ -149,7 +142,7 @@ class PrivatePhotosClient(private val context: Context) {
     }
 
     private fun rpc(id: String, data: JSONArray): JSONArray {
-        require(id == "snAcKc") // Fetch album only; no Google Photos write operations.
+        require(id == "snAcKc" || id == "Z5xsfc") // Read albums only; no Google Photos write operations.
         val g = global ?: error("Not connected")
         fun enc(s: String) = URLEncoder.encode(s, "UTF-8")
         val query = "rpcids=$id&source-path=%2F&f.sid=${enc(g.getString("FdrFJe"))}&bl=${enc(g.getString("cfb2h"))}&rt=c"
@@ -166,6 +159,38 @@ class PrivatePhotosClient(private val context: Context) {
             }
         }
         error("Google album response changed or sign-in expired.")
+    }
+
+    fun albums(): List<Album> {
+        connect()
+        var token: String? = null
+        val seen = HashSet<String>()
+        val result = LinkedHashMap<String, Album>()
+        do {
+            val page = rpc("Z5xsfc", JSONArray().put(token ?: JSONObject.NULL).put(JSONObject.NULL).put(JSONObject.NULL)
+                .put(JSONObject.NULL).put(1).put(JSONObject.NULL).put(JSONObject.NULL).put(100).put(JSONArray().put(2)).put(5))
+            val rows = page.optJSONArray(0) ?: JSONArray()
+            for (i in 0 until rows.length()) {
+                val row = rows.optJSONArray(i) ?: continue
+                val meta = row.optJSONObject(row.length() - 1)?.optJSONArray("72930366")
+                val id = row.optString(0)
+                if (id.isNotEmpty()) result[id] = Album(id, meta?.optString(1)?.takeIf { it.isNotEmpty() } ?: "Untitled album", meta?.optInt(3) ?: 0)
+            }
+            token = if (page.isNull(1)) null else page.optString(1).takeIf { it.isNotEmpty() }
+            if (token != null) check(seen.add(token)) { "Album pagination repeated. Try again later." }
+        } while (token != null)
+        return result.values.toList()
+    }
+
+    /** Validate in a separate in-memory client; an invalid upload never replaces the saved session. */
+    fun validateSession(text: String): Pair<PrivatePhotosClient, List<Album>> {
+        val candidate = PrivatePhotosClient(context)
+        candidate.persistCookies = false
+        candidate.cookies = GoogleSessionCookies.parse(text).toMutableList()
+        val albums = candidate.albums()
+        candidate.persistCookies = true
+        candidate.saveCookies()
+        return candidate to albums
     }
 
     fun sync(albumId: String, progress: (Int) -> Unit): List<FramePhoto> {
