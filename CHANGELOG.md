@@ -1,34 +1,24 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
+## Repository maintenance
 
-The format is inspired by Keep a Changelog and follows semantic versioning where practical.
+- Promoted the native 0.5.1-alpha implementation to `main`, preserving both branch histories.
+- Retired the unused React/WebView prototype, bundled web assets, old bridge, placeholder layout, and tracked IDE settings.
+- Archived prototype planning documents and replaced the current documentation index, architecture, and roadmap.
+- This cleanup does not change the maintained app's behavior or version.
 
----
+## 0.5.1-alpha
 
-## [0.1.0] - 2026-06-27
+- Replaced skipped background wake broadcasts with direct activity alarms.
+- Restored explicit daytime brightness and exposed the next scheduled wake in local controls.
+- Build, 21 unit tests, and Android lint passed before promotion. Short hardware wake tests passed; full overnight confirmation remains pending.
 
-### Added
+## 0.5-alpha
 
-- Initial Android application
-- Fullscreen immersive mode
-- Embedded Android WebView
-- React/Vite frontend support
-- Successful deployment to Lenovo Smart Frame
-- Git repository initialization
-- GitHub repository
-- Project documentation
-    - README
-    - ROADMAP
-    - CHANGELOG
+- Added guided local Google session import/renewal and private album selection without a prebuilt seed index.
 
-### Hardware Tested
+## 0.4-alpha
 
-- Lenovo Smart Frame (CD-3L501F)
-- Android 10
+- Established the standalone native slideshow, private Google Photos album access, local controls, caching, launcher support, and nightly scheduling.
 
-### Status
-
-Prototype complete.
-
-Ready for Android ↔ JavaScript bridge development.
+See the [prototype changelog](docs/archive/CHANGELOG-prototype.md) for the retired implementation.

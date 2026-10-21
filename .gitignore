@@ -13,3 +13,26 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+web/node_modules/
+web/dist/
+.idea/vcs.xml
+
+# Private frame/account data and local probe artifacts
+**/__pycache__/
+*.pyc
+**/*cookies*.txt
+**/session-import.txt
+**/google-session.enc
+**/album-seed.json
+**/album.json
+**/management-url.txt
+**/photo-cache/
+*.keystore
+*.jks
+/app/src/main/res/drawable/test.jpg
+/installer/local/
+/installer/FrameRevive.apk
+
+# IDE configuration is local to each developer
+/.idea/

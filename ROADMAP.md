@@ -1,52 +1,17 @@
-# FrameRevive Roadmap
+# Roadmap
 
-## Completed
+The native Android app on `main` is the maintained implementation. The [prototype roadmap](docs/archive/ROADMAP-prototype.md) is historical.
 
-### Milestone 1: Native Android App
-- Created Android project
-- Built basic FrameRevive app
-- Installed and launched on Lenovo Smart Frame
+## Next validation
 
-### Milestone 2: Fullscreen WebView
-- Added fullscreen immersive mode
-- Added Android WebView
-- Loaded React/Vite frontend from development machine
-- Confirmed working on Lenovo Smart Frame hardware
+- Confirm the 0.5.1 wake fix across a full overnight sleep and repeated nights.
+- Add a photo to the selected Google Photos album and verify automatic discovery and display end to end.
+- Validate guided installation and account setup on another owner's frame.
+- Observe session longevity and recovery when Google expires or changes its signed-in web interface.
 
-## In Progress
+## Planned improvements
 
-### Milestone 3: Android ↔ JavaScript Bridge
-- Add Kotlin JavaScript interface
-- Allow React UI to call native Android functions
-- Display native app/version/status data in the frontend
+- Make local management easier to find after the frame's IP address changes.
+- Improve onboarding and recovery using feedback from additional frames.
 
-## Upcoming
-
-### Milestone 4: Local Configuration
-- Store settings locally
-- Add slideshow speed setting
-- Add photo source setting
-- Add sleep/wake schedule settings
-
-### Milestone 5: Slideshow Engine
-- Display local photos fullscreen
-- Add transitions
-- Add automatic rotation
-- Add basic error handling
-
-### Milestone 6: Local Photo Cache
-- Store photos on device
-- Continue slideshow without internet
-- Manage cache size
-
-### Milestone 7: Google Photos Integration
-- OAuth sign-in
-- Album selection
-- Photo sync
-- Multiple album support
-
-### Milestone 8: Installer
-- Windows installer
-- ADB detection
-- One-click install
-- Automatic startup setup
+These are priorities, not promises of compatibility or a release schedule. See [current setup and limitations](docs/standalone-alpha.md).
