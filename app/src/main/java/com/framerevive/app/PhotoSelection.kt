@@ -12,6 +12,11 @@ data class FramePhoto(val id: String, val url: String, val takenMs: Long, val of
 }
 
 object PhotoSelection {
+    // Newly discovered IDs get one turn before the usual mix, including old captures.
+    fun prioritize(normal: List<FramePhoto>, photos: List<FramePhoto>, pending: Set<String>): List<FramePhoto> {
+        val first = photos.filter { it.id in pending }.distinctBy { it.id }.sortedByDescending { it.discoveredMs }
+        return first + normal.filterNot { it.id in pending }
+    }
     fun distance(a: LocalDate, b: LocalDate): Int {
         val days = abs(a.withYear(2000).dayOfYear - b.withYear(2000).dayOfYear)
         return min(days, 366 - days)

@@ -4,7 +4,9 @@ A standalone Android photo-frame app for the discontinued Lenovo Smart Frame (CD
 
 **`main` is the maintained branch.** The older prototype branches are historical; start new work and builds from `main`. See the [documentation index](docs/README.md).
 
-## Current version: 0.5.5 alpha
+## Current version: 0.5.6 alpha
+
+Version 0.5.6 automatically checks shared-album counts every two minutes while awake, refreshes when the count changes, and gives newly discovered photos a first turn before the usual mix. Hourly full refresh remains enabled. Google propagation and the full scan mean additions are not instantaneous.
 
 Version 0.5.5 adds authenticated APK upload with package/version/signature validation and Android confirmation on the frame. The controls page and installer include a [recovery guide](docs/recovery.md). The initial upgrade from older builds still uses ADB; later APKs can be uploaded from the controls page.
 

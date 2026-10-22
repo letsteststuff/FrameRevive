@@ -23,3 +23,7 @@ adb shell am start -n com.walnut.bluetooth/com.smart_frame.SplashActivity
 Android Studio's adb.exe is normally in your LocalAppData Android/Sdk/platform-tools folder. Restoring Lenovo's launcher does not repair its discontinued Google Photos service. Disable FrameRevive's device-administrator activation in Android settings before uninstalling it.
 
 Keep your shared album URL, account-cookie exports, and full controls link private. Do not post them in screenshots or GitHub issues.
+
+
+New photo not showing yet
+Shared-album additions are checked every two minutes while the slideshow is awake, then a full scan runs. Give Google time to expose the new count. New IDs play once before the usual mix. Same-count replacements may wait for the hourly scan. Check the count-check status on the controls page if needed; signed-in albums use hourly full checks.

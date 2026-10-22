@@ -19,7 +19,7 @@ import javax.crypto.spec.GCMParameterSpec
 // Read-only wire format adapted from xob0t/google_photos_web_client (MIT).
 // See tools/GOOGLE_PHOTOS_CLIENT_LICENSE.txt. This web API is unofficial.
 class PrivatePhotosClient(private val context: Context, private val anonymous: Boolean = false) {
-    data class SharedAlbum(val title: String, val photos: List<FramePhoto>)
+    data class SharedAlbum(val title: String, val photos: List<FramePhoto>, val itemCount: Int?)
     private var lastAddress = ""
     private var sourcePath = "/"
     data class Album(val id: String, val title: String, val count: Int)
@@ -221,8 +221,7 @@ class PrivatePhotosClient(private val context: Context, private val anonymous: B
         return photos.values.toList()
     }
 
-    /** Read the shared page and every subsequent album page without account cookies. */
-    fun syncShared(link: String, progress: (Int) -> Unit): SharedAlbum {
+    private fun sharedPage(link: String): Pair<JSONArray, String> {
         check(anonymous)
         val supplied = URL(link)
         require(supplied.protocol == "https" && supplied.port == -1 && supplied.userInfo == null &&
@@ -242,13 +241,24 @@ class PrivatePhotosClient(private val context: Context, private val anonymous: B
             val candidate = runCatching { JSONArray(match.groupValues[1]) }.getOrNull() ?: continue
             if (candidate.optJSONArray(1) != null && candidate.optJSONArray(3)?.optString(0)?.isNotBlank() == true) { page = candidate; break }
         }
-        var current = page ?: error("The shared album is unavailable or its format changed.")
+        val current = page ?: error("The shared album is unavailable or its format changed.")
         val album = current.getJSONArray(3)
-        val albumKey = album.getString(0)
-        val title = album.optString(1).ifBlank { "Shared album" }
         val authKey = resolved.query?.split('&')?.firstOrNull { it.startsWith("key=") }?.substringAfter('=')
             ?.let { java.net.URLDecoder.decode(it, "UTF-8") } ?: album.optString(19)
         require(authKey.isNotBlank()) { "Shared album access key is missing." }
+        return current to authKey
+    }
+
+    /** Only the public initial page, not the complete paginated photo index. */
+    fun sharedCount(link: String): Int? = sharedPage(link).first.getJSONArray(3).optInt(21, -1).takeIf { it >= 0 }
+
+    /** Read the shared page and every subsequent album page without account cookies. */
+    fun syncShared(link: String, progress: (Int) -> Unit): SharedAlbum {
+        val (first, authKey) = sharedPage(link)
+        var current = first
+        val album = current.getJSONArray(3)
+        val albumKey = album.getString(0)
+        val title = album.optString(1).ifBlank { "Shared album" }
         val photos = LinkedHashMap<String, FramePhoto>()
         val seen = HashSet<String>()
         while (true) {
@@ -267,7 +277,7 @@ class PrivatePhotosClient(private val context: Context, private val anonymous: B
             current = rpc("snAcKc", JSONArray().put(albumKey).put(token).put(JSONObject.NULL).put(authKey))
         }
         check(photos.isNotEmpty()) { "Shared album returned no photos; previous index retained." }
-        return SharedAlbum(title, photos.values.toList())
+        return SharedAlbum(title, photos.values.toList(), album.optInt(21, -1).takeIf { it >= 0 })
     }
 
     companion object {

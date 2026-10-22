@@ -8,6 +8,14 @@ import java.time.ZoneOffset
 import kotlin.random.Random
 
 class PhotoSelectionTest {
+    @Test fun pendingOlderAdditionsPlayBeforeTheNormalMixOnce() {
+        val old = photo("addedOld", "2001-01-01").copy(discoveredMs = 100)
+        val newer = photo("addedNew", "2020-01-01").copy(discoveredMs = 200)
+        val regular = photo("regular", "2026-10-21")
+        val result = PhotoSelection.prioritize(listOf(regular, old, newer, regular), listOf(old, newer, regular), setOf(old.id,newer.id,"removed"))
+        assertEquals(listOf(newer.id,old.id,regular.id,regular.id), result.map { it.id })
+        assertEquals(listOf(regular), PhotoSelection.prioritize(listOf(regular), listOf(old,regular), emptySet()))
+    }
     private fun photo(id: String, date: String) = FramePhoto(id, "", LocalDate.parse(date).atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli())
     @Test fun calendarWrapsAtNewYearAndHandlesLeapDay() {
         assertEquals(1, PhotoSelection.distance(LocalDate.parse("2020-12-31"), LocalDate.parse("2026-01-01")))

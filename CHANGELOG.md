@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.6-alpha
+
+- Poll shared-album initial-page counts every two minutes while the slideshow is awake. Count changes trigger a full refresh; hourly scans remain enabled.
+- Queue newly discovered IDs from the same album for first display, including old captures, then return to the normal photo mix. Persist unshown priority IDs across app restarts.
+- Show last count check, observed count, check errors and pending priority items on local controls.
+- Compare against full-scan metadata count, so unsupported/filtered album entries do not force repeated scans.
+- Increased version code to 11. Existing album source, settings, and signing key are preserved.
+
+
 ## 0.5.5-alpha
 
 - Added a bounded, streamed APK-upload endpoint protected by the existing management key and same-origin checks.

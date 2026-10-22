@@ -26,6 +26,8 @@ class MainActivity : Activity() {
     private val images = Executors.newSingleThreadExecutor()
     private val network = Executors.newSingleThreadExecutor()
     private val syncing = AtomicBoolean(false)
+    private val checkingCount = AtomicBoolean(false)
+    private val priorityIds by lazy { LinkedHashSet(prefs.getStringSet("priorityIds", emptySet()).orEmpty()) }
     private lateinit var client: PrivatePhotosClient
     private lateinit var image: ImageView
     private lateinit var controls: LinearLayout
@@ -64,6 +66,9 @@ class MainActivity : Activity() {
     private val hide = Runnable { if (displayed) controls.visibility = View.GONE }
     private val refresh = object : Runnable {
         override fun run() { sync(); handler.postDelayed(this, 60 * 60 * 1000L) }
+    }
+    private val countCheck = object : Runnable {
+        override fun run() { checkAlbumCount(); handler.postDelayed(this, 120_000) }
     }
     private val clock = object : Runnable {
         override fun run() { checkSchedule(); handler.postDelayed(this, 30_000) }
@@ -144,6 +149,7 @@ class MainActivity : Activity() {
         FramePower.schedule(this)
         if (sharedLink.isBlank() && File(filesDir, "google-session.enc").exists()) loadAlbums()
         handler.post(refresh)
+        handler.postDelayed(countCheck, 120_000)
         handler.post(clock)
     }
 
@@ -163,7 +169,27 @@ class MainActivity : Activity() {
     }
 
     private fun saveCatalog(json: JSONObject) = PrivatePhotosClient.writeAtomic(File(filesDir, "album.json"), json.toString().toByteArray(Charsets.UTF_8))
-    private fun rebuild() { day = LocalDate.now(); playlist = PhotoSelection.playlist(photos, day); index = 0 }
+    private fun rebuild() {
+        day = LocalDate.now()
+        playlist = PhotoSelection.prioritize(PhotoSelection.playlist(photos, day), photos, priorityIds)
+        index = 0
+    }
+    private fun checkAlbumCount() {
+        if (closed || !active || sleeping || sharedLink.isBlank() || syncing.get() || setupBusy.get() || !checkingCount.compareAndSet(false, true)) return
+        val source = sharedLink
+        network.execute {
+            try {
+                val count = PrivatePhotosClient(this, anonymous = true).sharedCount(source)
+                prefs.edit().putLong("lastCountCheck", System.currentTimeMillis()).putInt("observedCount", count ?: -1)
+                    .remove("lastCountError").apply()
+                handler.post {
+                    if (!closed && active && !sleeping && sharedLink == source && count != null && count != prefs.getInt("fullAlbumCount", photos.size)) sync()
+                }
+            } catch (e: Exception) {
+                prefs.edit().putLong("lastCountCheck", System.currentTimeMillis()).putString("lastCountError", safeMessage(e)).apply()
+            } finally { checkingCount.set(false) }
+        }
+    }
     private fun showControls() { controlsUntil = android.os.SystemClock.uptimeMillis() + 15_000; controls.visibility = View.VISIBLE; handler.removeCallbacks(hide); handler.postDelayed(hide, 15_000) }
 
     private fun settings() {
@@ -263,6 +289,7 @@ class MainActivity : Activity() {
                     caption.text = p.date().format(DateTimeFormatter.ofPattern("MMMM d, yyyy"))
                     caption.visibility = if (prefs.getBoolean("date", true)) View.VISIBLE else View.GONE
                     displayed = true; failures = 0
+                    if (priorityIds.remove(p.id)) prefs.edit().putStringSet("priorityIds", priorityIds.toSet()).apply()
                     if (android.os.SystemClock.uptimeMillis() >= controlsUntil) controls.visibility = View.GONE
                     handler.postDelayed(advance, prefs.getInt("seconds", 30) * 1000L)
                 }
@@ -308,16 +335,22 @@ class MainActivity : Activity() {
                 val rows = JSONArray()
                 fresh.forEach { p -> rows.put(JSONObject().put("id", p.id).put("url", p.url).put("takenMs", p.takenMs).put("offsetMs", p.offsetMs).put("discoveredMs",p.discoveredMs)) }
                 saveCatalog(JSONObject().put("albumId", targetId).put("title", actualTitle).put("sharedLink", targetShared).put("photos", rows).put("syncedAt", System.currentTimeMillis()))
-                prefs.edit().putLong("lastSuccessfulSync", System.currentTimeMillis()).remove("lastSyncError").apply()
+                prefs.edit().putLong("lastSuccessfulSync", System.currentTimeMillis()).putInt("fullAlbumCount", shared?.itemCount ?: fresh.size)
+                    .remove("lastSyncError").remove("lastCountError").apply()
                 val valid = fresh.map { cached(it).name }.toHashSet()
                 File(filesDir, "photo-cache").listFiles()?.filter { it.extension == "jpg" && it.name !in valid }?.forEach { it.delete() }
                 handler.post {
                     if (!closed) {
+                        if (changingAlbum) priorityIds.clear()
+                        else priorityIds.addAll(fresh.filter { it.id !in existing }.map { it.id })
+                        priorityIds.retainAll(fresh.map { it.id }.toSet())
+                        prefs.edit().putStringSet("priorityIds", priorityIds.toSet()).apply()
+                        val hasAdditions = priorityIds.isNotEmpty()
                         albumId = targetId; title = actualTitle; sharedLink = targetShared; client = reader; photos = fresh; rebuild()
                         if (setupGeneration.get() == statusGeneration)
                             setupMessage = "Connected${if (targetShared.isNotBlank()) " through shared link (no account cookies)" else ""}. Displaying $title (${fresh.size} photos)."
                         status.text = "$title · ${fresh.size} photos\nUpdated ${java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date())} · checks hourly"
-                        if ((!displayed || changingAlbum) && active) showNext()
+                        if ((!displayed || changingAlbum || hasAdditions) && active) showNext()
                     }
                 }
             } catch (e: Exception) {
@@ -359,7 +392,7 @@ class MainActivity : Activity() {
         if (intent.action == FramePower.WAKE || intent.action == FramePower.SLEEP)
             FramePower.record(this, "Scheduled display resumed")
         FramePower.schedule(this)
-        checkSchedule(force = true); showNext()
+        checkSchedule(force = true); showNext(); checkAlbumCount()
     }
     override fun onPause() { buttonLights.stop(); super.onPause(); active = false; generation++; handler.removeCallbacks(advance) }
     override fun dispatchTouchEvent(event: android.view.MotionEvent): Boolean {
@@ -409,11 +442,13 @@ class MainActivity : Activity() {
         return """<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>FrameRevive</title>
         
         <style>body{font:17px system-ui;background:#111923;color:#edf2f7;max-width:560px;margin:32px auto;padding:20px}h1{margin-bottom:8px}p{color:#bcc9d6;line-height:1.5}label{display:block;margin:20px 0}input,button{font:inherit;padding:10px;border-radius:8px}button{background:#b6e0bb;color:#102316;border:0;margin:8px 8px 8px 0}small{color:#aebdcd}button:disabled{opacity:.7;cursor:wait}button[aria-busy=true]:before{content:"";display:inline-block;width:12px;height:12px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;margin-right:8px;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}</style></head><body>
-        <h1>FrameRevive <small>0.5.5-alpha</small></h1><p id="albumSummary">${esc(title)} · ${photos.size} photos<br>Newest photos + memories from around today's date.</p>
+        <h1>FrameRevive <small>0.5.6-alpha</small></h1><p id="albumSummary">${esc(title)} · ${photos.size} photos<br>New additions first, then newest photos + memories from around today's date.</p>
         <section id="connectionStatus"><h2>Connection status</h2>
         <p>Source: <strong>${if (sharedLink.isNotBlank()) "Shared Google Photos album · no account cookies" else "Signed-in Google Photos album"}</strong><br>
         Album: ${esc(title)}<br>Last successful refresh: ${time("lastSuccessfulSync")}<br>Last refresh attempt: ${time("lastSyncAttempt")}<br>
         Refresh: ${if (syncing.get()) "In progress…" else "Idle · checks hourly while running"}</p>
+        <p>${if (sharedLink.isNotBlank()) "Automatic count check: every two minutes while awake.<br>Last count check: ${time("lastCountCheck")} · observed count: ${prefs.getInt("observedCount", -1).takeIf { it >= 0 } ?: "not available"}" else "Signed-in source: hourly full checks."}<br>New photos waiting for their first display: ${priorityIds.size}</p>
+        ${prefs.getString("lastCountError", null)?.let { "<p>Count check error: ${esc(it)}. Hourly full refresh remains enabled.</p>" } ?: ""}
         <p role="status">${prefs.getString("lastSyncError", null)?.let { "Refresh error (${time("lastSyncErrorAt")}): ${esc(it)}. The last complete album is retained." } ?: "No current album refresh error."}</p>
         ${prefs.getString("lastPhotoError", null)?.let { "<p>Last photo download error (${time("lastPhotoErrorAt")}): ${esc(it)}. Cached photos can continue playing.</p>" } ?: ""}
         <h2>Bookmark your controls</h2><p><a href="${esc(stableUrl)}">${esc(stableUrl)}</a><br><small>${esc(localName?.status ?: "Local hostname unavailable")}</small></p>
@@ -445,7 +480,7 @@ class MainActivity : Activity() {
         <input type="file" id="apkFile" accept=".apk,application/vnd.android.package-archive"><button type="button" id="apkUpload">Upload and verify APK</button>
         <form method="post"><button name="action" value="allowInstalls">Allow installs on frame</button><button name="action" value="installApk">Install on frame</button><button name="action" value="discardApk">Discard uploaded APK</button></form>
         ${RecoveryGuide.html()}
-        <p id="actionResult" role="status" aria-live="polite"></p><p>Album checks run hourly. All photos stay managed in Google Photos. These controls work on your home Wi-Fi while the frame is awake.</p>
+        <p id="actionResult" role="status" aria-live="polite"></p><p>Shared album counts are checked automatically every two minutes while awake. Changes trigger a full refresh and new photos get a first turn. Full album checks also run hourly. All photos stay managed in Google Photos.</p>
         <small>Screen control: ${if (FramePower.hasScreenControl(this)) "hardware sleep enabled" else "dim-to-black only"}. Times use the frame's local timezone. Keep this private management link bookmarked.</small>
         <p id="powerStatus"><small>Last power event: ${esc(prefs.getString("lastPowerEvent","No scheduled event recorded yet")!!)}.<br>Next wake: ${if(prefs.contains("nextWAKE")) esc(java.text.DateFormat.getDateTimeInstance().format(java.util.Date(prefs.getLong("nextWAKE",0)))) else "schedule disabled"}</small></p>
         <script>

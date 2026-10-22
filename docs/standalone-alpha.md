@@ -100,3 +100,12 @@ Use **Bookmark your controls** on the page to save the full private hostname lin
 The first upgrade from an older build still needs the Windows/ADB installer. Once 0.5.5 is installed, use **Update FrameRevive** on your private controls page: choose a `.apk`, upload and verify it, allow install requests on the frame if needed, then click **Install on frame** and confirm Android's prompt with your Bluetooth mouse. A ZIP is not an APK. The app verifies package identity, compatible Android version, matching signing certificate, and no downgrade; a same-version reinstall is allowed. No uninstall is needed, so settings and album data are preserved. The webpage may disconnect during replacement; reopen the saved link afterward. Cancel on the frame or discard a staged APK to stop. Upload limit: 40 MiB.
 
 Read [the recovery guide](recovery.md) for black screens, photo/session failures, changed networks, and restoring Lenovo's launcher. The same guide is available on the controls page.
+
+
+## Automatic additions (0.5.6 and later)
+
+For a shared album, the awake slideshow checks the public initial-page item count every two minutes. A changed count requests a complete atomic refresh. It still scans the entire album hourly to renew photo URLs and catch changes that leave the count unchanged. This is polling, not a Google notification subscription; Google propagation and scan time add to the two-minute interval. Checks pause while the slideshow is asleep or another activity is in front, and run again when it resumes.
+
+New IDs found in the same album are queued for one first display ahead of the normal mix, even for older capture dates. Pending priority IDs are retained through restart and removed after successful display. Selecting a different album does not treat its entire library as new additions. After the priority queue, the usual recent/seasonal mix resumes. No webpage interaction is required to detect or display additions.
+
+The initial page is approximately 280 KB compressed on the tested album, not a zero-cost notification. Same-count replacements and edits may wait for the hourly scan. If count metadata is unavailable or a check fails, hourly refresh continues. See Connection status for the last count check, observed count, errors, and remaining priority items.
