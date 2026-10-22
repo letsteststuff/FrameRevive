@@ -7,6 +7,24 @@ import java.net.URLEncoder
 import java.util.concurrent.atomic.AtomicReference
 
 class FrameRemoteTest {
+    @Test fun binaryUploadIsAuthenticatedAndPreservesBytes() {
+        val data = byteArrayOf(0, 1, 38, 61, -1, 0, 13, 10)
+        val uploaded = AtomicReference<ByteArray>()
+        FrameRemote("upload-key", { "page" }, { "unused" }, 0,
+            upload = { input, length -> uploaded.set(input.readNBytes(length)); "verified" }).use { server ->
+            // The callback reads exactly the declared bytes, never until HTTP connection EOF.
+            fun send(key: String, length: Int = data.size): String = Socket("127.0.0.1", server.port).use { socket ->
+                socket.soTimeout = 3000
+                val header = "POST /?key=$key&action=uploadApk HTTP/1.1\r\nHost: 127.0.0.1:${server.port}\r\nContent-Type: application/vnd.android.package-archive\r\nContent-Length: $length\r\n\r\n"
+                socket.getOutputStream().apply { write(header.toByteArray()); if(length == data.size) write(data); flush() }
+                socket.shutdownOutput()
+                socket.getInputStream().bufferedReader().readText()
+            }
+            assertTrue(send("wrong").startsWith("HTTP/1.1 403")); assertNull(uploaded.get())
+            assertTrue(send("upload-key", 50_000_000).startsWith("HTTP/1.1 400")); assertNull(uploaded.get())
+            assertTrue(send("upload-key").contains("verified")); assertArrayEquals(data, uploaded.get())
+        }
+    }
     private fun request(server: FrameRemote, path: String, body: String? = null, origin: String? = null): Pair<Int,String> {
         return Socket("127.0.0.1",server.port).use { socket ->
             socket.soTimeout=3000

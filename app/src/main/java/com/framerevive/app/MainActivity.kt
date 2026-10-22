@@ -48,6 +48,7 @@ class MainActivity : Activity() {
     private var sleeping = false
     private var failures = 0
     private var remote: FrameRemote? = null
+    private val updater by lazy { FrameUpdater(this) }
     private var localName: FrameLocalName? = null
     private var stableUrl = ""
     private var controlsUntil = 0L
@@ -138,7 +139,7 @@ class MainActivity : Activity() {
             stableUrl = "http://$hostname:8765/?key=$token"
             localName = FrameLocalName(this, hostname)
             controls.addView(TextView(this).apply { text = "Manage from your phone or laptop:\n$manageUrl"; textSize = 13f; setTextColor(Color.LTGRAY) })
-            remote = FrameRemote(token, { remotePage() }, { fields -> applyRemote(fields) })
+            remote = FrameRemote(token, { remotePage() }, { fields -> applyRemote(fields) }, upload = { input, length -> updater.receive(input, length) })
         } catch (_: Exception) { status.append("\nPhone management could not start.") }
         FramePower.schedule(this)
         if (sharedLink.isBlank() && File(filesDir, "google-session.enc").exists()) loadAlbums()
@@ -408,7 +409,7 @@ class MainActivity : Activity() {
         return """<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>FrameRevive</title>
         
         <style>body{font:17px system-ui;background:#111923;color:#edf2f7;max-width:560px;margin:32px auto;padding:20px}h1{margin-bottom:8px}p{color:#bcc9d6;line-height:1.5}label{display:block;margin:20px 0}input,button{font:inherit;padding:10px;border-radius:8px}button{background:#b6e0bb;color:#102316;border:0;margin:8px 8px 8px 0}small{color:#aebdcd}button:disabled{opacity:.7;cursor:wait}button[aria-busy=true]:before{content:"";display:inline-block;width:12px;height:12px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;margin-right:8px;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}</style></head><body>
-        <h1>FrameRevive <small>0.5.4-alpha</small></h1><p id="albumSummary">${esc(title)} · ${photos.size} photos<br>Newest photos + memories from around today's date.</p>
+        <h1>FrameRevive <small>0.5.5-alpha</small></h1><p id="albumSummary">${esc(title)} · ${photos.size} photos<br>Newest photos + memories from around today's date.</p>
         <section id="connectionStatus"><h2>Connection status</h2>
         <p>Source: <strong>${if (sharedLink.isNotBlank()) "Shared Google Photos album · no account cookies" else "Signed-in Google Photos album"}</strong><br>
         Album: ${esc(title)}<br>Last successful refresh: ${time("lastSuccessfulSync")}<br>Last refresh attempt: ${time("lastSyncAttempt")}<br>
@@ -439,6 +440,11 @@ class MainActivity : Activity() {
         <label><input type="checkbox" name="crop" ${checked("crop")}> Fill screen (crop photo edges)</label>
         <label><input type="checkbox" name="date" ${checked("date",true)}> Show capture date</label>
         <button name="action" value="save">Save settings</button><button name="action" value="next">Next photo</button><button name="action" value="refresh">Refresh album</button></form>
+        <hr><h2>Update FrameRevive</h2><div id="updateStatus" role="status">${updater.panel()}</div>
+        <p>Choose a FrameRevive APK (maximum 40 MiB). Uploading does not install it. Android asks you to confirm on the frame; use your Bluetooth mouse. Keep the frame powered and on trusted home Wi-Fi.</p>
+        <input type="file" id="apkFile" accept=".apk,application/vnd.android.package-archive"><button type="button" id="apkUpload">Upload and verify APK</button>
+        <form method="post"><button name="action" value="allowInstalls">Allow installs on frame</button><button name="action" value="installApk">Install on frame</button><button name="action" value="discardApk">Discard uploaded APK</button></form>
+        ${RecoveryGuide.html()}
         <p id="actionResult" role="status" aria-live="polite"></p><p>Album checks run hourly. All photos stay managed in Google Photos. These controls work on your home Wi-Fi while the frame is awake.</p>
         <small>Screen control: ${if (FramePower.hasScreenControl(this)) "hardware sleep enabled" else "dim-to-black only"}. Times use the frame's local timezone. Keep this private management link bookmarked.</small>
         <p id="powerStatus"><small>Last power event: ${esc(prefs.getString("lastPowerEvent","No scheduled event recorded yet")!!)}.<br>Next wake: ${if(prefs.contains("nextWAKE")) esc(java.text.DateFormat.getDateTimeInstance().format(java.util.Date(prefs.getLong("nextWAKE",0)))) else "schedule disabled"}</small></p>
@@ -449,7 +455,7 @@ class MainActivity : Activity() {
           const response=await fetch(location.href,{cache:'no-store'});
           if(!response.ok)throw new Error('Could not read frame status.');
           const page=new DOMParser().parseFromString(await response.text(),'text/html');
-          for(const id of ['setupStatus','albumSummary','albumPicker','powerStatus','connectionStatus']){
+          for(const id of ['setupStatus','albumSummary','albumPicker','powerStatus','connectionStatus','updateStatus']){
             const fresh=page.getElementById(id),current=document.getElementById(id);
             if(fresh&&current){
               if(id==='albumPicker'&&document.activeElement&&current.contains(document.activeElement))continue;
@@ -475,6 +481,19 @@ class MainActivity : Activity() {
           event.preventDefault();const button=event.submitter;if(!button)return;
           const body=new URLSearchParams(new FormData(event.target));body.set(button.name,button.value);send(body,button);
         });
+        document.getElementById('apkUpload').addEventListener('click',async function(){
+          if(sending)return;const file=document.getElementById('apkFile').files[0];
+          if(!file||!file.name.toLowerCase().endsWith('.apk')||file.size<1||file.size>41943040){result.textContent='Choose a FrameRevive APK no larger than 40 MiB.';return;}
+          sending=true;busy(this,true);clearTimeout(timer);result.textContent='Uploading APK… Keep this page open.';
+          try{
+            const endpoint=new URL(location.href);endpoint.searchParams.set('action','uploadApk');
+            const response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/vnd.android.package-archive'},body:file,cache:'no-store'});
+            const reply=new DOMParser().parseFromString(await response.text(),'text/html');
+            result.textContent=reply.querySelector('p')?.textContent||'Upload finished. Check update status.';
+            await updateStatus();
+          }catch(error){result.textContent='Upload connection interrupted. Check update status before trying again.';timer=setTimeout(poll,5000);}
+          finally{sending=false;busy(this,false);}
+        });
         document.getElementById('importButton').addEventListener('click',async function(){
           if(sending)return;
           const file=document.getElementById('sessionFile').files[0];
@@ -489,6 +508,9 @@ class MainActivity : Activity() {
     private fun applyRemote(fields: Map<String, String>): String {
         return try {
             when (fields["action"]) {
+                "allowInstalls" -> { handler.post { try { updater.allowInstalls() } catch (_: Exception) { updater.reportFailure() } }; "Opening Android's install permission setting on the frame. Approve there, then return to FrameRevive." }
+                "installApk" -> { handler.post { try { updater.install() } catch (e: Exception) { updater.reportFailure(e) } }; "Request sent. Check Update status and confirm Android's prompt on the frame." }
+                "discardApk" -> updater.discard()
                 "sharedAlbum" -> {
                     val link = fields["sharedLink"]?.trim().orEmpty()
                     require(link.length in 1..2048)
@@ -535,4 +557,8 @@ class MainActivity : Activity() {
         } catch (_: Exception) { "Could not save. Use valid times and 10 to 300 seconds per photo." }
     }
     override fun onDestroy() { closed = true; localName?.close(); remote?.close(); handler.removeCallbacksAndMessages(null); images.shutdownNow(); network.shutdownNow(); super.onDestroy() }
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == FrameUpdater.INSTALL_REQUEST) updater.finished(resultCode)
+    }
 }

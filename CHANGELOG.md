@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.5-alpha
+
+- Added a bounded, streamed APK-upload endpoint protected by the existing management key and same-origin checks.
+- Validate package identity, compatible Android version, installed signing certificate, and non-decreasing version before staging. Android handles confirmation and installation through a narrow FileProvider grant; no silent installation.
+- Added install-source permission guidance, cancel/retry/discard controls, and update status on the local page.
+- Added a recovery guide to the controls page, docs, and Windows installer ZIP.
+- Increased version code to 10. Existing app data is preserved when installing an update.
+
+
 ## 0.5.4-alpha
 
 - Added current source, last refresh success/attempt, refresh errors, and timestamped photo-download errors to local controls, with background status polling.

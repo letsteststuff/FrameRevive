@@ -7,6 +7,7 @@ The native Android app on `main` is maintained. Start here:
 - [Setup, validation, and recovery](standalone-alpha.md)
 - [Current architecture](../Architecture.md)
 - [Roadmap](../ROADMAP.md)
+- [Recovery guide](recovery.md)
 - [Changelog](../CHANGELOG.md)
 
 [Archived prototype documents](archive/README.md) describe retired code and must not be used for current installation.

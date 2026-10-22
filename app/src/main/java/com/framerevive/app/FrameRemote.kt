@@ -7,7 +7,8 @@ import java.util.concurrent.Executors
 
 /** LAN-only management. A random per-install secret is required on every request. */
 class FrameRemote(private val token: String, private val page: () -> String,
-                  private val apply: (Map<String, String>) -> String, port: Int = 8765) : AutoCloseable {
+                  private val apply: (Map<String, String>) -> String, port: Int = 8765,
+                  private val upload: ((java.io.InputStream, Int) -> String)? = null) : AutoCloseable {
     private val worker = Executors.newSingleThreadExecutor()
     private val server = ServerSocket(port).apply { soTimeout = 1000 }
     val port: Int get() = server.localPort
@@ -49,6 +50,16 @@ class FrameRemote(private val token: String, private val page: () -> String,
         if (request[0] == "GET") { reply(socket, 200, page()); return }
         if (request[0] != "POST") { reply(socket, 405, "Method not supported."); return }
         val length = headers["content-length"]?.toIntOrNull() ?: 0
+        if (target.substringAfter('?', "").split('&').contains("action=uploadApk")) {
+            if (upload == null) { reply(socket, 404, "APK upload is unavailable."); return }
+            if (headers["content-type"] != "application/vnd.android.package-archive" || length !in 1..FrameUpdater.MAX_BYTES) {
+                reply(socket, 400, "Choose an APK no larger than 40 MiB."); return
+            }
+            socket.soTimeout = 30_000
+            try { reply(socket, 200, "<p>${escape(upload.invoke(input, length))}</p>") }
+            catch (_: Exception) { reply(socket, 400, "<p>APK upload or validation failed. See update status on the controls page.</p>") }
+            return
+        }
         if (length !in 1..800_000) { reply(socket, 400, "Form is too large. Choose a small cookies.txt export."); return }
         val bytes = ByteArray(length)
         var read = 0

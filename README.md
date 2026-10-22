@@ -4,7 +4,9 @@ A standalone Android photo-frame app for the discontinued Lenovo Smart Frame (CD
 
 **`main` is the maintained branch.** The older prototype branches are historical; start new work and builds from `main`. See the [documentation index](docs/README.md).
 
-## Current version: 0.5.4 alpha
+## Current version: 0.5.5 alpha
+
+Version 0.5.5 adds authenticated APK upload with package/version/signature validation and Android confirmation on the frame. The controls page and installer include a [recovery guide](docs/recovery.md). The initial upgrade from older builds still uses ADB; later APKs can be uploaded from the controls page.
 
 Version 0.5.4 adds refresh/error status on the controls page, hides on-frame controls during playback, and provides a persistent per-frame `.local` bookmark on mDNS-capable networks. The existing private management key is still required.
 

@@ -93,3 +93,10 @@ The local controls page shows the current source, last successful refresh, last 
 During playback the frame shows photos and optional captions. Tap with a connected input device to reveal the on-frame controls for 15 seconds. Photo changes no longer extend that timer.
 
 Use **Bookmark your controls** on the page to save the full private hostname link. Each installation generates a hostname such as `framerevive-a1b2c3d4.local`. The mDNS responder returns the current Wi-Fi IPv4 address and never advertises the management key. Keep the key in the saved URL; the hostname does not replace authentication. It works only on the same local network while the app/frame is awake. Some networks block multicast or lack local-name support; keep the IP link as a fallback, or use a router DHCP reservation. A factory reset or clearing app data creates a new hostname and key.
+
+
+## Webpage updates (0.5.5 and later)
+
+The first upgrade from an older build still needs the Windows/ADB installer. Once 0.5.5 is installed, use **Update FrameRevive** on your private controls page: choose a `.apk`, upload and verify it, allow install requests on the frame if needed, then click **Install on frame** and confirm Android's prompt with your Bluetooth mouse. A ZIP is not an APK. The app verifies package identity, compatible Android version, matching signing certificate, and no downgrade; a same-version reinstall is allowed. No uninstall is needed, so settings and album data are preserved. The webpage may disconnect during replacement; reopen the saved link afterward. Cancel on the frame or discard a staged APK to stop. Upload limit: 40 MiB.
+
+Read [the recovery guide](recovery.md) for black screens, photo/session failures, changed networks, and restoring Lenovo's launcher. The same guide is available on the controls page.
