@@ -56,6 +56,7 @@ class MainActivity : Activity() {
     private var controlsUntil = 0L
     private val buttonLights by lazy { FrameButtonLights(this) }
     private var manageUrl = ""
+    private var tlsFingerprint = ""
     @Volatile private var availableAlbums = emptyList<PrivatePhotosClient.Album>()
     @Volatile private var setupMessage = "Import your Google Photos session, then choose an album."
     private val setupBusy = AtomicBoolean(false)
@@ -131,20 +132,22 @@ class MainActivity : Activity() {
             status.text = "$title · ${photos.size} photos\nNewest photos + this time in past years"
         } catch (e: Exception) { status.text = "Setup needs attention: ${safeMessage(e)}" }
         try {
-            val token = prefs.getString("managementKey", null) ?: java.util.UUID.randomUUID().toString().replace("-", "").also {
-                prefs.edit().putString("managementKey", it).apply()
+            val token = prefs.getString("managementKey", null)?.takeIf { prefs.getBoolean("httpsManagement", false) } ?: java.util.UUID.randomUUID().toString().replace("-", "").also {
+                check(prefs.edit().putString("managementKey", it).putBoolean("httpsManagement", true).commit())
             }
             val ip = java.util.Collections.list(java.net.NetworkInterface.getNetworkInterfaces()).flatMap {
                 java.util.Collections.list(it.inetAddresses)
             }.firstOrNull { it is java.net.Inet4Address && it.isSiteLocalAddress }?.hostAddress ?: "frame-ip"
-            manageUrl = "http://$ip:8765/?key=$token"
+            manageUrl = "https://$ip:8765/?key=$token"
             val hostname = prefs.getString("localHostname", null) ?: "framerevive-${java.util.UUID.randomUUID().toString().take(8)}.local".also {
                 prefs.edit().putString("localHostname", it).apply()
             }
-            stableUrl = "http://$hostname:8765/?key=$token"
+            stableUrl = "https://$hostname:8765/?key=$token"
+            val tls = FrameTls(this, hostname, runCatching { java.net.InetAddress.getByName(ip).address }.getOrNull())
+            tlsFingerprint = tls.fingerprint
             localName = FrameLocalName(this, hostname)
-            controls.addView(TextView(this).apply { text = "Manage from your phone or laptop:\n$manageUrl"; textSize = 13f; setTextColor(Color.LTGRAY) })
-            remote = FrameRemote(token, { remotePage() }, { fields -> applyRemote(fields) }, upload = { input, length -> updater.receive(input, length) })
+            controls.addView(TextView(this).apply { text = "Manage from your phone or laptop:\n$stableUrl\nCertificate SHA-256:\n$tlsFingerprint"; textSize = 13f; setTextColor(Color.LTGRAY) })
+            remote = FrameRemote(token, { remotePage() }, { fields -> applyRemote(fields) }, tls.listen(8765), upload = { input, length -> updater.receive(input, length) })
         } catch (_: Exception) { status.append("\nPhone management could not start.") }
         FramePower.schedule(this)
         if (sharedLink.isBlank() && File(filesDir, "google-session.enc").exists()) loadAlbums()
@@ -449,7 +452,7 @@ class MainActivity : Activity() {
         return """<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>FrameRevive</title>
         
         <style>body{font:17px system-ui;background:#111923;color:#edf2f7;max-width:560px;margin:32px auto;padding:20px}h1{margin-bottom:8px}p{color:#bcc9d6;line-height:1.5}label{display:block;margin:20px 0}input,button{font:inherit;padding:10px;border-radius:8px}button{background:#b6e0bb;color:#102316;border:0;margin:8px 8px 8px 0}small{color:#aebdcd}button:disabled{opacity:.7;cursor:wait}button[aria-busy=true]:before{content:"";display:inline-block;width:12px;height:12px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;margin-right:8px;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}</style></head><body>
-        <h1>FrameRevive <small>0.5.7-alpha</small></h1><p id="albumSummary">${esc(title)} · ${photos.size} photos<br>New additions first, then newest photos + memories from around today's date.</p>
+        <h1>FrameRevive <small>0.5.8-alpha</small></h1><p id="albumSummary">${esc(title)} · ${photos.size} photos<br>New additions first, then newest photos + memories from around today's date.</p>
         <section id="connectionStatus"><h2>Connection status</h2>
         <p>Source: <strong>${if (sharedLink.isNotBlank()) "Shared Google Photos album · no account cookies" else "Signed-in Google Photos album"}</strong><br>
         Album: ${esc(title)}<br>Last successful refresh: ${time("lastSuccessfulSync")}<br>Last refresh attempt: ${time("lastSyncAttempt")}<br>
@@ -459,6 +462,7 @@ class MainActivity : Activity() {
         <p role="status">${prefs.getString("lastSyncError", null)?.let { "Refresh error (${time("lastSyncErrorAt")}): ${esc(it)}. The last complete album is retained." } ?: "No current album refresh error."}</p>
         ${prefs.getString("lastPhotoError", null)?.let { "<p>Last photo download error (${time("lastPhotoErrorAt")}): ${esc(it)}. Cached photos can continue playing.</p>" } ?: ""}
         <h2>Bookmark your controls</h2><p><a href="${esc(stableUrl)}">${esc(stableUrl)}</a><br><small>${esc(localName?.status ?: "Local hostname unavailable")}</small></p>
+        <p><small>Encrypted HTTPS management. First-time certificate pairing must be verified against the SHA-256 fingerprint shown on the frame, or through authorized USB. Never accept a changed certificate without verifying it again.</small></p>
         <p><small>The hostname stays the same if the frame's IP changes. Keep the full link, including its key, private. If your phone/router does not support local names, use the IP link or reserve the frame's IP in your router.</small></p></section>
         <h2>Google Photos</h2><p id="setupStatus" data-busy="${setupBusy.get() || albumSwitching || syncing.get()}">${esc(setupMessage)}</p>
         <form method="post"><label>Shared Google Photos album link <input type="url" required name="sharedLink" placeholder="https://photos.app.goo.gl/…"></label><button name="action" value="sharedAlbum">Use shared album</button></form>

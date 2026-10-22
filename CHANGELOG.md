@@ -74,3 +74,11 @@
 - Established the standalone native slideshow, private Google Photos album access, local controls, caching, launcher support, and nightly scheduling.
 
 See the [prototype changelog](docs/archive/CHANGELOG-prototype.md) for the retired implementation.
+# 0.5.8-alpha — security update
+
+- Require HTTPS management with a persistent per-frame Android Keystore identity and explicit certificate pairing.
+- Rotate the previously HTTP-exposed controls key once and update Windows/USB setup links.
+- Bound request concurrency, aggregate headers and total handshake/header/body lifetime; close active sockets on shutdown.
+- Add isolated TLS, slow-client, authentication and legitimate upload regression tests.
+- Build, 33 unit tests, lint, and Android 10 HTTPS settings/upload/restart checks passed. The TLS key permissions support Conscrypt's prehashed/raw RSA signing while retaining signing-only key purpose and ECDHE/AES-GCM transport.
+

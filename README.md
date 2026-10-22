@@ -4,7 +4,9 @@ A standalone Android photo-frame app for the discontinued Lenovo Smart Frame (CD
 
 **`main` is the maintained branch.** The older prototype branches are historical; start new work and builds from `main`. See the [documentation index](docs/README.md).
 
-## Current version: 0.5.7 alpha
+## Current version: 0.5.8 alpha
+
+Version 0.5.8 requires HTTPS for management and rotates the old HTTP management key once. Each frame has a persistent device certificate backed by Android Keystore. Pair its SHA-256 fingerprint through the physical frame or authorized USB before trusting it in a browser. Old HTTP bookmarks stop working. See [HTTPS pairing](docs/security-pairing.md). Slow connections now have absolute deadlines and bounded concurrency. Build, unit tests, lint, and HTTPS settings/upload/restart checks passed on the tested Android 10 Lenovo frame.
 
 Version 0.5.7 fixes a sleeping display staying off after the owner disables the schedule or changes its window to make the current time awake. The settings change now requests a hardware wake as well as restoring brightness.
 

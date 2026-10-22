@@ -27,3 +27,7 @@ Keep your shared album URL, account-cookie exports, and full controls link priva
 
 New photo not showing yet
 Shared-album additions are checked every two minutes while the slideshow is awake, then a full scan runs. Give Google time to expose the new count. New IDs play once before the usual mix. Same-count replacements may wait for the hourly scan. Check the count-check status on the controls page if needed; signed-in albums use hourly full checks.
+# HTTPS upgrade recovery (0.5.8)
+
+Old HTTP management links stop working and their key is replaced once. Use the new HTTPS link and fingerprint shown on the frame, or reconnect authorized USB and rerun the new installer. Verify the certificate before trusting it. See [HTTPS pairing](security-pairing.md) for browser trust, USB access and changed IP addresses.
+

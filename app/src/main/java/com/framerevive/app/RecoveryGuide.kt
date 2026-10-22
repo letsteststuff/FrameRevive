@@ -9,7 +9,7 @@ object RecoveryGuide {
         Read Connection status and try Refresh album. Shared-link mode does not need account cookies: check that the saved album link still opens without sign-in and that link sharing is enabled. If necessary paste the working shared link again. For signed-in mode, use Connect or renew Google Photos and reselect the album. Cached photos can keep playing while Google is unavailable.
 
         Controls page will not open
-        Your phone/computer must be on the same home Wi-Fi, and the frame must be awake. Use the full saved link, including its key. Try the IP link if .local names do not work on your network. Guest networks/client isolation may prevent access. A router DHCP reservation is the fallback for a stable IP.
+        Your phone/computer must be on the same home Wi-Fi, and the frame must be awake. Version 0.5.8 changes management to HTTPS and rotates the old key once: replace old HTTP bookmarks using the new link shown on the frame or saved by the USB installer. Verify the certificate SHA-256 fingerprint against the frame before trusting a first-time certificate. Never accept an unexpected changed certificate without checking. USB setup uses HTTPS too. If .local names do not work, the original installation IP is also included in the certificate; after an IP change use the stable hostname or USB localhost link. Guest networks/client isolation may prevent access.
 
         Changed Wi-Fi network
         Reconnect USB and run the Windows installer script with -ConfigureWifi. Keep the Bluetooth mouse paired so you can accept USB debugging prompts on the frame. Once photos and the Wi-Fi controls link work again, disconnect USB. An offline frame cannot change its network through the webpage.

@@ -114,3 +114,7 @@ The initial page is approximately 280 KB compressed on the tested album, not a z
 ## Wake after changing sleep settings (0.5.7)
 
 Disabling an active sleep schedule through the controls page explicitly wakes the display and restores daytime brightness. Editing the sleep/wake times so the current time is outside the sleep interval does the same. Ordinary setting saves outside a sleep interval do not request a display wake. The fix applies to both webpage and on-frame saves; it does not establish full overnight alarm reliability.
+# Management security update (0.5.8)
+
+HTTPS replaces historical HTTP examples below. Replace old bookmarks and use the new per-frame key; there is no HTTP listener or redirect. Pair the certificate using the fingerprint on the physical frame or authorized USB. See [HTTPS pairing](security-pairing.md).
+

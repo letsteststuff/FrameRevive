@@ -2,7 +2,7 @@
 
 This alpha is for the Lenovo Smart Frame CD-3L501F running Android 10. It replaces the discontinued Lenovo photo app with a standalone Google Photos slideshow. It does not require root or a factory reset.
 
-Version 0.5.5-alpha includes shared-album setup without Google account cookies and owner-confirmed webpage updates. It includes controls that stay on the page and front button lights that light briefly on proximity or interaction. To upgrade an existing installation, run this installer with the new APK; do not uninstall first.
+Version 0.5.8-alpha adds encrypted HTTPS controls and protection against slow connections blocking management. It includes shared-album setup without Google account cookies, owner-confirmed webpage updates, controls that stay on the page, and proximity-triggered front button lights. To upgrade an existing installation, run this installer with the new APK; do not uninstall first.
 
 ## 1. Prepare the frame
 
@@ -14,6 +14,8 @@ Version 0.5.5-alpha includes shared-album setup without Google account cookies a
 - Keep `FrameRevive.apk`, `Install.cmd`, and `Install-FrameRevive.ps1` together.
 
 ## 2. Install
+
+**0.5.8 uses HTTPS:** the installer retrieves this frame's public certificate through authorized USB. Compare its SHA-256 fingerprint with the frame, then type `TRUST` if you want to trust it in your Windows user certificate store. Otherwise pair the browser manually using the verified fingerprint. Replace old HTTP bookmarks; the management key changes once. See [HTTPS pairing](../docs/security-pairing.md). Keep your Bluetooth Keyboard & Mouse app paired for on-frame verification and Android's installation confirmation.
 
 Double-click **Install.cmd**. The script preserves existing FrameRevive settings, enables its screen-lock-only administrator, selects it as the Home app, and disables Lenovo's frame app reversibly. It opens the private setup page through USB and saves your controls links in `local/frame-controls.txt`.
 
