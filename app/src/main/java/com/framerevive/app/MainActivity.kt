@@ -215,19 +215,20 @@ class MainActivity : Activity() {
                     require(a != b) { "Sleep and wake times must differ." }
                     val sec = seconds.text.toString().toInt(); require(sec in 10..300) { "Choose 10–300 seconds." }
                     val light = brightness.text.toString().toInt(); require(light in 5..100) { "Choose 5–100 percent brightness." }
+                    val wasSleeping = FramePower.shouldSleep(this) || sleeping
                     prefs.edit().putString("sleepStart", a.toString()).putString("sleepEnd", b.toString())
                         .putBoolean("schedule", enabled.isChecked).putBoolean("crop", crop.isChecked)
                         .putBoolean("date", date.isChecked).putInt("seconds", sec).putInt("brightness",light).apply()
                     image.scaleType = if (crop.isChecked) ImageView.ScaleType.CENTER_CROP else ImageView.ScaleType.FIT_CENTER
                     caption.visibility = if (date.isChecked) View.VISIBLE else View.GONE
-                    FramePower.schedule(this); checkSchedule(); dialog.dismiss()
+                    FramePower.schedule(this); checkSchedule(wakeFromSchedule = wasSleeping); dialog.dismiss()
                 } catch (e: Exception) { Toast.makeText(this, e.message ?: "Use HH:mm times.", Toast.LENGTH_LONG).show() }
             }
         }
         dialog.show()
     }
 
-    private fun checkSchedule(force: Boolean = false) {
+    private fun checkSchedule(force: Boolean = false, wakeFromSchedule: Boolean = false) {
         val now = LocalTime.now()
         val start = LocalTime.parse(prefs.getString("sleepStart", "22:00"))
         val end = LocalTime.parse(prefs.getString("sleepEnd", "07:00"))
@@ -235,6 +236,12 @@ class MainActivity : Activity() {
         // Always restore our own daytime level; the abandoned ambient-light service
         // can leave Android's global automatic brightness at its minimum overnight.
         window.attributes = window.attributes.apply { screenBrightness = if (shouldSleep) 0f else FrameSchedule.awakeBrightness(prefs.getInt("brightness",55)) }
+        // Updating brightness does not wake a display locked by DevicePolicyManager.
+        // Capture the old schedule when saving, including while the activity is paused.
+        if (!shouldSleep && (sleeping || wakeFromSchedule) && !getSystemService(android.os.PowerManager::class.java).isInteractive) {
+            FramePower.record(this, "Display wake requested after leaving scheduled sleep")
+            FramePower.wake(this)
+        }
         if (shouldSleep == sleeping) {
             if (force && shouldSleep) FramePower.sleep(this)
             return
@@ -442,7 +449,7 @@ class MainActivity : Activity() {
         return """<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>FrameRevive</title>
         
         <style>body{font:17px system-ui;background:#111923;color:#edf2f7;max-width:560px;margin:32px auto;padding:20px}h1{margin-bottom:8px}p{color:#bcc9d6;line-height:1.5}label{display:block;margin:20px 0}input,button{font:inherit;padding:10px;border-radius:8px}button{background:#b6e0bb;color:#102316;border:0;margin:8px 8px 8px 0}small{color:#aebdcd}button:disabled{opacity:.7;cursor:wait}button[aria-busy=true]:before{content:"";display:inline-block;width:12px;height:12px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;margin-right:8px;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}</style></head><body>
-        <h1>FrameRevive <small>0.5.6-alpha</small></h1><p id="albumSummary">${esc(title)} · ${photos.size} photos<br>New additions first, then newest photos + memories from around today's date.</p>
+        <h1>FrameRevive <small>0.5.7-alpha</small></h1><p id="albumSummary">${esc(title)} · ${photos.size} photos<br>New additions first, then newest photos + memories from around today's date.</p>
         <section id="connectionStatus"><h2>Connection status</h2>
         <p>Source: <strong>${if (sharedLink.isNotBlank()) "Shared Google Photos album · no account cookies" else "Signed-in Google Photos album"}</strong><br>
         Album: ${esc(title)}<br>Last successful refresh: ${time("lastSuccessfulSync")}<br>Last refresh attempt: ${time("lastSyncAttempt")}<br>
@@ -572,6 +579,7 @@ class MainActivity : Activity() {
                     require(seconds in 10..300) { "Choose 10 to 300 seconds per photo." }
                     val brightness = fields["brightness"]?.toIntOrNull() ?: prefs.getInt("brightness",55)
                     require(brightness in 5..100) { "Choose 5 to 100 percent brightness." }
+                    val wasSleeping = FramePower.shouldSleep(this) || sleeping
                     prefs.edit().putString("sleepStart",start.toString()).putString("sleepEnd",end.toString())
                         .putBoolean("schedule",fields.containsKey("schedule")).putBoolean("crop",fields.containsKey("crop"))
                         .putBoolean("date",fields.containsKey("date")).putInt("seconds",seconds).putInt("brightness",brightness).commit()
@@ -580,7 +588,7 @@ class MainActivity : Activity() {
                         if (!closed) {
                             image.scaleType = if (prefs.getBoolean("crop",false)) ImageView.ScaleType.CENTER_CROP else ImageView.ScaleType.FIT_CENTER
                             caption.visibility = if (prefs.getBoolean("date",true)) View.VISIBLE else View.GONE
-                            checkSchedule()
+                            checkSchedule(wakeFromSchedule = wasSleeping)
                         }
                     }, 1000)
                     "Settings saved."

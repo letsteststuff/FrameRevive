@@ -14,8 +14,8 @@ android {
         applicationId = "com.framerevive.app"
         minSdk = 29
         targetSdk = 36
-       versionCode = 11
-       versionName = "0.5.6-alpha"
+       versionCode = 12
+       versionName = "0.5.7-alpha"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

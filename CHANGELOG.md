@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.7-alpha
+
+- Explicitly wake a locked display when a settings change leaves an active scheduled-sleep interval, rather than only restoring brightness.
+- Capture the old schedule before saving, including when the activity is paused behind the sleeping display. Apply the behavior to web and on-frame settings.
+- Preserve ordinary settings saves without unnecessary wake requests; retain existing alarms and schedule semantics.
+- Increased version code to 12. Existing album, controls hostname, and settings remain unchanged.
+
+
 ## 0.5.6-alpha
 
 - Poll shared-album initial-page counts every two minutes while the slideshow is awake. Count changes trigger a full refresh; hourly scans remain enabled.

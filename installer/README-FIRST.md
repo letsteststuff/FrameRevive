@@ -98,3 +98,8 @@ For a shared album, the awake slideshow checks the public initial-page item coun
 New IDs found in the same album are queued for one first display ahead of the normal mix, even for older capture dates. Pending priority IDs are retained through restart and removed after successful display. Selecting a different album does not treat its entire library as new additions. After the priority queue, the usual recent/seasonal mix resumes. No webpage interaction is required to detect or display additions.
 
 The initial page is approximately 280 KB compressed on the tested album, not a zero-cost notification. Same-count replacements and edits may wait for the hourly scan. If count metadata is unavailable or a check fails, hourly refresh continues. See Connection status for the last count check, observed count, errors, and remaining priority items.
+
+
+## Wake after changing sleep settings (0.5.7)
+
+Disabling an active sleep schedule through the controls page explicitly wakes the display and restores daytime brightness. Editing the sleep/wake times so the current time is outside the sleep interval does the same. Ordinary setting saves outside a sleep interval do not request a display wake. The fix applies to both webpage and on-frame saves; it does not establish full overnight alarm reliability.

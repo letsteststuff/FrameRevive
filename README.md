@@ -4,7 +4,9 @@ A standalone Android photo-frame app for the discontinued Lenovo Smart Frame (CD
 
 **`main` is the maintained branch.** The older prototype branches are historical; start new work and builds from `main`. See the [documentation index](docs/README.md).
 
-## Current version: 0.5.6 alpha
+## Current version: 0.5.7 alpha
+
+Version 0.5.7 fixes a sleeping display staying off after the owner disables the schedule or changes its window to make the current time awake. The settings change now requests a hardware wake as well as restoring brightness.
 
 Version 0.5.6 automatically checks shared-album counts every two minutes while awake, refreshes when the count changes, and gives newly discovered photos a first turn before the usual mix. Hourly full refresh remains enabled. Google propagation and the full scan mean additions are not instantaneous.
 
