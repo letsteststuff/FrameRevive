@@ -38,6 +38,8 @@ class MainActivity : Activity() {
     private var day = LocalDate.now()
     private var index = 0
     private var albumId = ""
+    private var sharedLink = ""
+    private var lastPhotoRecovery = 0L
     private var title = "FrameRevive"
     private var generation = 0
     private var active = false
@@ -130,7 +132,7 @@ class MainActivity : Activity() {
             remote = FrameRemote(token, { remotePage() }, { fields -> applyRemote(fields) })
         } catch (_: Exception) { status.append("\nPhone management could not start.") }
         FramePower.schedule(this)
-        if (File(filesDir, "google-session.enc").exists()) loadAlbums()
+        if (sharedLink.isBlank() && File(filesDir, "google-session.enc").exists()) loadAlbums()
         handler.post(refresh)
         handler.post(clock)
     }
@@ -143,6 +145,8 @@ class MainActivity : Activity() {
         }
         check(list.isNotEmpty()) { "Photo index is empty." }
         albumId = json.getString("albumId"); title = json.optString("title", "Your photo frame")
+        sharedLink = json.optString("sharedLink")
+        if (sharedLink.isNotBlank()) client = PrivatePhotosClient(this, anonymous = true)
         photos = list; rebuild()
     }
 
@@ -254,7 +258,11 @@ class MainActivity : Activity() {
                 handler.post {
                     if (closed || !active || ticket != generation) return@post
                     failures++; status.text = "$title\n${safeMessage(e)}\nTrying another photo."
-                    showControls()
+                    if (!displayed) showControls()
+                    if (e.message?.contains("HTTP 403") == true && System.currentTimeMillis() - lastPhotoRecovery > 300_000) {
+                        lastPhotoRecovery = System.currentTimeMillis()
+                        sync()
+                    }
                     val offline = (playlist.indices.filter { it >= index } + playlist.indices.filter { it < index }).firstOrNull { cached(playlist[it]).exists() }
                     if (offline != null) index = offline
                     handler.postDelayed(advance, if (failures > 2 && offline == null) 30_000 else 1000)
@@ -262,32 +270,37 @@ class MainActivity : Activity() {
             }
         }
     }
-    private fun sync(targetId: String = albumId, targetTitle: String = title) {
+    private fun sync(targetId: String = albumId, targetTitle: String = title, targetShared: String = sharedLink) {
         if (targetId.isBlank() || !syncing.compareAndSet(false, true)) return
         val statusGeneration = setupGeneration.get()
-        albumSwitching = targetId != albumId
+        albumSwitching = targetId != albumId || targetShared != sharedLink
         if (!setupBusy.get()) setupMessage = "Loading $targetTitle. The existing slideshow continues until it is ready."
         status.text = "$targetTitle · checking Google Photos…"
         network.execute {
             try {
-                val changingAlbum = targetId != albumId
+                val changingAlbum = targetId != albumId || targetShared != sharedLink
                 val existing = photos.associateBy { it.id }
                 val discovered = System.currentTimeMillis()
-                val fresh = client.sync(targetId) { count ->
+                val reader = if (targetShared.isNotBlank()) PrivatePhotosClient(this, anonymous = true)
+                    else if (sharedLink.isNotBlank()) PrivatePhotosClient(this).apply { importSessionIfPresent() } else client
+                val progress: (Int) -> Unit = { count ->
                     if (albumSwitching && setupGeneration.get() == statusGeneration) setupMessage = "Reading $targetTitle: $count photos…"
                     handler.post { if (!closed) status.text = "$targetTitle · reading $count photos…" }
                 }
+                val shared = if (targetShared.isNotBlank()) reader.syncShared(targetShared, progress) else null
+                val actualTitle = shared?.title ?: targetTitle
+                val fresh = (shared?.photos ?: reader.sync(targetId, progress))
                     .map { p -> p.copy(discoveredMs = if (changingAlbum) 0 else existing[p.id]?.discoveredMs ?: discovered) }
                 val rows = JSONArray()
                 fresh.forEach { p -> rows.put(JSONObject().put("id", p.id).put("url", p.url).put("takenMs", p.takenMs).put("offsetMs", p.offsetMs).put("discoveredMs",p.discoveredMs)) }
-                saveCatalog(JSONObject().put("albumId", targetId).put("title", targetTitle).put("photos", rows).put("syncedAt", System.currentTimeMillis()))
+                saveCatalog(JSONObject().put("albumId", targetId).put("title", actualTitle).put("sharedLink", targetShared).put("photos", rows).put("syncedAt", System.currentTimeMillis()))
                 val valid = fresh.map { cached(it).name }.toHashSet()
                 File(filesDir, "photo-cache").listFiles()?.filter { it.extension == "jpg" && it.name !in valid }?.forEach { it.delete() }
                 handler.post {
                     if (!closed) {
-                        albumId = targetId; title = targetTitle; photos = fresh; rebuild()
+                        albumId = targetId; title = actualTitle; sharedLink = targetShared; client = reader; photos = fresh; rebuild()
                         if (setupGeneration.get() == statusGeneration)
-                            setupMessage = "Connected. Displaying $targetTitle (${fresh.size} photos)."
+                            setupMessage = "Connected${if (targetShared.isNotBlank()) " through shared link (no account cookies)" else ""}. Displaying $title (${fresh.size} photos)."
                         status.text = "$title · ${fresh.size} photos\nUpdated ${java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date())} · checks hourly"
                         if ((!displayed || changingAlbum) && active) showNext()
                     }
@@ -301,7 +314,7 @@ class MainActivity : Activity() {
                 handler.post {
                     albumSwitching = false
                     val next = pendingAlbum; pendingAlbum = null
-                    if (!closed && next != null) sync(next.id, next.title)
+                    if (!closed && next != null) sync(next.id, next.title, "")
                 }
             }
         }
@@ -347,7 +360,7 @@ class MainActivity : Activity() {
         setupMessage = "Reading your Google Photos albums…"
         network.execute {
             try {
-                availableAlbums = client.albums()
+                availableAlbums = PrivatePhotosClient(this).apply { importSessionIfPresent() }.albums()
                 setupMessage = if (availableAlbums.isEmpty()) "Connected, but no albums were found. Create an album in Google Photos, then load albums again."
                     else "Connected. ${availableAlbums.size} albums available. Choose one below."
             } catch (e: Exception) { setupMessage = "Could not read albums: ${safeMessage(e)}. Import a fresh session if needed." }
@@ -362,7 +375,7 @@ class MainActivity : Activity() {
         network.execute {
             try {
                 val (connected, albums) = client.validateSession(text)
-                client = connected
+                if (sharedLink.isBlank()) client = connected
                 availableAlbums = albums
                 setupMessage = if (albums.isEmpty()) "Session verified and encrypted. No albums found; create one in Google Photos and load albums again."
                     else "Session verified and encrypted on this frame. Choose an album below."
@@ -379,9 +392,11 @@ class MainActivity : Activity() {
         return """<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>FrameRevive</title>
         
         <style>body{font:17px system-ui;background:#111923;color:#edf2f7;max-width:560px;margin:32px auto;padding:20px}h1{margin-bottom:8px}p{color:#bcc9d6;line-height:1.5}label{display:block;margin:20px 0}input,button{font:inherit;padding:10px;border-radius:8px}button{background:#b6e0bb;color:#102316;border:0;margin:8px 8px 8px 0}small{color:#aebdcd}button:disabled{opacity:.7;cursor:wait}button[aria-busy=true]:before{content:"";display:inline-block;width:12px;height:12px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;margin-right:8px;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}</style></head><body>
-        <h1>FrameRevive <small>0.5.2-alpha</small></h1><p id="albumSummary">${esc(title)} · ${photos.size} photos<br>Newest photos + memories from around today's date.</p>
+        <h1>FrameRevive <small>0.5.3-alpha</small></h1><p id="albumSummary">${esc(title)} · ${photos.size} photos<br>Newest photos + memories from around today's date.</p>
         <h2>Google Photos</h2><p id="setupStatus" data-busy="${setupBusy.get() || albumSwitching || syncing.get()}">${esc(setupMessage)}</p>
-        <details ${if (availableAlbums.isEmpty()) "open" else ""}><summary>Connect or renew Google Photos</summary>
+        <form method="post"><label>Shared Google Photos album link <input type="url" required name="sharedLink" placeholder="https://photos.app.goo.gl/…"></label><button name="action" value="sharedAlbum">Use shared album</button></form>
+        <p><small>For an album that opens without signing in. No account cookies are used in shared-link mode. Anyone with the album link can view its photos; keep it private. Changes to the same album are checked hourly.</small></p>
+        <details ${if (availableAlbums.isEmpty() && sharedLink.isBlank()) "open" else ""}><summary>Connect or renew Google Photos (signed-in alternative)</summary>
         <p>Sign in only on Google's own website. This setup imports a local session export; it is not Google's official Sign in button.</p>
         <ol><li>On your computer, install <a href="https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc" target="_blank" rel="noreferrer">Get cookies.txt LOCALLY</a> and allow it in Incognito.</li>
         <li>In a new Incognito window, sign in at <a href="https://photos.google.com/" target="_blank" rel="noreferrer">Google Photos</a> and open your library.</li>
@@ -450,6 +465,13 @@ class MainActivity : Activity() {
     private fun applyRemote(fields: Map<String, String>): String {
         return try {
             when (fields["action"]) {
+                "sharedAlbum" -> {
+                    val link = fields["sharedLink"]?.trim().orEmpty()
+                    require(link.length in 1..2048)
+                    if (syncing.get() || setupBusy.get()) return "An album check is already running. Try again when it finishes."
+                    handler.post { sync("shared", "Shared album", link) }
+                    "Reading the shared album without account cookies. The previous album stays available until the complete scan succeeds."
+                }
                 "importSession" -> importSession(fields["session"] ?: "")
                 "loadAlbums" -> { loadAlbums(); "Reading your albums. The album list will update here." }
                 "selectAlbum" -> {
@@ -458,7 +480,7 @@ class MainActivity : Activity() {
                         ?: return "That album is not in the current list. Load albums and try again."
                     handler.post {
                         if (syncing.get()) { pendingAlbum = selected; setupMessage = "Your album switch is queued after the current refresh." }
-                        else sync(selected.id, selected.title)
+                        else sync(selected.id, selected.title, "")
                     }
                     "Loading the selected album. Your current slideshow continues until the new album is ready."
                 }

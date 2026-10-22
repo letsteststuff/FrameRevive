@@ -2,7 +2,7 @@
 
 This alpha is for the Lenovo Smart Frame CD-3L501F running Android 10. It replaces the discontinued Lenovo photo app with a standalone Google Photos slideshow. It does not require root or a factory reset.
 
-Version 0.5.2-alpha adds controls that stay on the page and front button lights that turn off when idle, lighting briefly on proximity or interaction. To upgrade an existing installation, run this installer with the new APK; do not uninstall first.
+Version 0.5.3-alpha adds shared-album setup without Google account cookies. It includes controls that stay on the page and front button lights that light briefly on proximity or interaction. To upgrade an existing installation, run this installer with the new APK; do not uninstall first.
 
 ## 1. Prepare the frame
 
@@ -28,6 +28,17 @@ To configure Wi-Fi first, run in PowerShell:
 If installation reports a signature conflict with an existing FrameRevive build, stop and decide whether to preserve its data before uninstalling it. This script does not uninstall or reset apps automatically.
 
 ## 3. Connect your own Google Photos account
+
+### Recommended: use a shared album link
+
+1. In Google Photos, enable link sharing for the album you want to display.
+2. Confirm that its link opens in a fresh Incognito window without signing in.
+3. On the frame's setup page, paste the link into **Shared Google Photos album link** and click **Use shared album**.
+4. Wait for the full scan to finish. The previous slideshow continues until the replacement index is complete.
+
+This mode does not need a cookies export. Changes to that same album are checked hourly, or with **Refresh album**. Anyone with the link can view the album, so keep it private. Disabling link sharing prevents future shared-mode refreshes. Google can still change this unofficial web interface.
+
+### Alternative: signed-in private album
 
 Use **Connect or renew Google Photos** on the new local setup page:
 

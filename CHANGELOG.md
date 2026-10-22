@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.3-alpha
+
+- Added shared-album links as an anonymous, cookie-free source, with full pagination and atomic index replacement. Signed-in album access remains available.
+- Saved the selected source for restart and hourly refresh. Shared-link requests send no account cookies and do not save server cookies.
+- Photo HTTP 403 errors request an album-link refresh at most once per five minutes. Cached playback no longer repeatedly opens the error controls over a displayed photo.
+- Increased version code to 8; upgrading preserves existing settings and the last complete photo index.
+- Shared links and account/session data must never be committed or included in installer packages.
+
+
 ## 0.5.2-alpha
 
 - Local controls submit actions without leaving the page, with button spinners and inline results. Album/setup progress updates without reloading unsaved display settings.

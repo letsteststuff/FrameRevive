@@ -18,7 +18,10 @@ import javax.crypto.spec.GCMParameterSpec
 
 // Read-only wire format adapted from xob0t/google_photos_web_client (MIT).
 // See tools/GOOGLE_PHOTOS_CLIENT_LICENSE.txt. This web API is unofficial.
-class PrivatePhotosClient(private val context: Context) {
+class PrivatePhotosClient(private val context: Context, private val anonymous: Boolean = false) {
+    data class SharedAlbum(val title: String, val photos: List<FramePhoto>)
+    private var lastAddress = ""
+    private var sourcePath = "/"
     data class Album(val id: String, val title: String, val count: Int)
     private val cookieFile = File(context.filesDir, "google-session.enc")
     private var cookies = mutableListOf<GoogleSessionCookie>()
@@ -70,7 +73,7 @@ class PrivatePhotosClient(private val context: Context) {
     }.joinToString("; ") { "${it.name}=${it.value}" }
 
     private fun allowed(url: URL): Boolean = url.protocol == "https" &&
-        (url.host == "photos.google.com" || url.host == "photos.fife.usercontent.google.com" || url.host.endsWith(".googleusercontent.com"))
+        (url.host == "photos.google.com" || (anonymous && url.host == "photos.app.goo.gl") || url.host == "photos.fife.usercontent.google.com" || url.host.endsWith(".googleusercontent.com"))
 
     // Manual redirects ensure credentials are never forwarded to a different host.
     fun request(address: String, body: String? = null, image: Boolean = false): ByteArray {
@@ -83,7 +86,7 @@ class PrivatePhotosClient(private val context: Context) {
                 connection.readTimeout = 35000
                 connection.instanceFollowRedirects = false
                 connection.setRequestProperty("User-Agent", "Mozilla/5.0")
-                val cookie = header(url)
+                val cookie = if (anonymous) "" else header(url)
                 if (cookie.isNotEmpty()) connection.setRequestProperty("Cookie", cookie)
                 if (body != null) {
                     connection.requestMethod = "POST"
@@ -99,7 +102,8 @@ class PrivatePhotosClient(private val context: Context) {
                 check(status in 200..299) { "Google returned HTTP $status. Cached photos remain available." }
                 if (image) check(connection.contentType?.startsWith("image/") == true) { "Image access needs sign-in renewal." }
                 // Accept rotations only for already imported cookie names and domains.
-                synchronized(this) {
+                lastAddress = url.toString()
+                if (!anonymous) synchronized(this) {
                     var changed = false
                     connection.headerFields.entries.filter { it.key?.equals("Set-Cookie", true) == true }.flatMap { it.value }.forEach { raw ->
                         val pair = raw.substringBefore(';').split('=', limit = 2)
@@ -145,9 +149,9 @@ class PrivatePhotosClient(private val context: Context) {
         require(id == "snAcKc" || id == "Z5xsfc") // Read albums only; no Google Photos write operations.
         val g = global ?: error("Not connected")
         fun enc(s: String) = URLEncoder.encode(s, "UTF-8")
-        val query = "rpcids=$id&source-path=%2F&f.sid=${enc(g.getString("FdrFJe"))}&bl=${enc(g.getString("cfb2h"))}&rt=c"
+        val query = "rpcids=$id&source-path=${enc(sourcePath)}&f.sid=${enc(g.getString("FdrFJe"))}&bl=${enc(g.getString("cfb2h"))}&rt=c"
         val payload = JSONArray().put(JSONArray().put(JSONArray().put(id).put(data.toString()).put(JSONObject.NULL).put("generic")))
-        val body = "f.req=${enc(payload.toString())}&at=${enc(g.getString("SNlM0e"))}"
+        val body = "f.req=${enc(payload.toString())}" + if (g.optString("SNlM0e").isNotBlank()) "&at=${enc(g.getString("SNlM0e"))}" else ""
         val path = g.getString("Im6cmf")
         require(path.startsWith("/") && !path.startsWith("//") && !path.contains('?'))
         val text = String(request("https://photos.google.com$path/data/batchexecute?$query", body), Charsets.UTF_8)
@@ -215,6 +219,55 @@ class PrivatePhotosClient(private val context: Context) {
         } while (token != null)
         check(photos.isNotEmpty()) { "No photos returned; old photo index retained." }
         return photos.values.toList()
+    }
+
+    /** Read the shared page and every subsequent album page without account cookies. */
+    fun syncShared(link: String, progress: (Int) -> Unit): SharedAlbum {
+        check(anonymous)
+        val supplied = URL(link)
+        require(supplied.protocol == "https" && supplied.port == -1 && supplied.userInfo == null &&
+            (supplied.host == "photos.app.goo.gl" || (supplied.host == "photos.google.com" && supplied.path.startsWith("/share/")))) {
+            "Use a Google Photos shared album link."
+        }
+        val html = String(request(link), Charsets.UTF_8)
+        val resolved = URL(lastAddress)
+        require(resolved.host == "photos.google.com" && resolved.path.startsWith("/share/")) { "The link did not open a shared album." }
+        sourcePath = resolved.path
+        val metadata = Regex("window\\.WIZ_global_data\\s*=\\s*(\\{.*?\\})\\s*;", RegexOption.DOT_MATCHES_ALL)
+            .find(html)?.groupValues?.get(1) ?: error("Shared album page format changed.")
+        global = JSONObject(metadata)
+        val blocks = Regex("AF_initDataCallback\\(\\{key: '[^']+'.*?data:(.*?), sideChannel:", RegexOption.DOT_MATCHES_ALL)
+        var page: JSONArray? = null
+        for (match in blocks.findAll(html)) {
+            val candidate = runCatching { JSONArray(match.groupValues[1]) }.getOrNull() ?: continue
+            if (candidate.optJSONArray(1) != null && candidate.optJSONArray(3)?.optString(0)?.isNotBlank() == true) { page = candidate; break }
+        }
+        var current = page ?: error("The shared album is unavailable or its format changed.")
+        val album = current.getJSONArray(3)
+        val albumKey = album.getString(0)
+        val title = album.optString(1).ifBlank { "Shared album" }
+        val authKey = resolved.query?.split('&')?.firstOrNull { it.startsWith("key=") }?.substringAfter('=')
+            ?.let { java.net.URLDecoder.decode(it, "UTF-8") } ?: album.optString(19)
+        require(authKey.isNotBlank()) { "Shared album access key is missing." }
+        val photos = LinkedHashMap<String, FramePhoto>()
+        val seen = HashSet<String>()
+        while (true) {
+            check(!Thread.currentThread().isInterrupted) { "Sync interrupted" }
+            val rows = current.optJSONArray(1) ?: JSONArray()
+            for (i in 0 until rows.length()) {
+                val row = rows.optJSONArray(i) ?: continue
+                val id = row.optString(0); val url = row.optJSONArray(1)?.optString(0).orEmpty()
+                if (id.isNotBlank() && url.isNotBlank() && !row.isNull(2))
+                    photos[id] = FramePhoto(id, url, row.getLong(2), if (row.isNull(4)) 0 else row.optLong(4))
+            }
+            progress(photos.size)
+            val token = if (current.isNull(2)) null else current.optString(2).takeIf { it.isNotEmpty() }
+            if (token == null) break
+            check(seen.add(token)) { "Shared album pagination repeated; previous index retained." }
+            current = rpc("snAcKc", JSONArray().put(albumKey).put(token).put(JSONObject.NULL).put(authKey))
+        }
+        check(photos.isNotEmpty()) { "Shared album returned no photos; previous index retained." }
+        return SharedAlbum(title, photos.values.toList())
     }
 
     companion object {

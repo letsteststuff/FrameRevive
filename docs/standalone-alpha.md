@@ -75,3 +75,12 @@ Still outstanding: a real new-photo addition test, long-term session survival, a
 Management buttons stay on the controls page, show a spinner while sending, and report results inline. Setup and album status update in the background without replacing unsaved display settings. A connection failure may mean the command arrived but its response was lost; check the frame before retrying.
 
 On the tested Lenovo firmware, the native app controls the separate `led` system service. Front button lights are off when idle and illuminate at full button brightness for eight seconds after a proximity or input event. The proximity listener is removed and LEDs switched off when the activity pauses. No screen brightness or sleep/wake policy changes are part of this feature. Other firmware may not expose the service; photo playback continues without it.
+
+
+## 0.5.3 shared-album mode
+
+Paste a Google Photos shared-album URL that opens without sign-in into the local controls page. The app resolves only HTTPS Google Photos short links or /share/ pages, reads the initial data and every continuation page, and replaces the saved index only when the entire scan succeeds. The shared URL is stored in private app data for future refreshes. It is omitted from installer bundles and source files.
+
+Shared requests use a dedicated anonymous client: no account cookies are sent or accepted, and an anonymous request does not require an authenticated request token. Each sync obtains fresh web metadata and photo URLs from the shared page. Hourly checks and manual refresh both use this source after restart. Signed-in album selection switches back to the encrypted-session client.
+
+Image HTTP 403 errors trigger a rate-limited refresh (maximum once per five minutes); successful cached playback stays on screen without repeatedly reopening the failure controls. Google can revoke or change shared links, so cookie-free access does not imply guaranteed permanent availability.

@@ -4,13 +4,17 @@ A standalone Android photo-frame app for the discontinued Lenovo Smart Frame (CD
 
 **`main` is the maintained branch.** The older prototype branches are historical; start new work and builds from `main`. See the [documentation index](docs/README.md).
 
-## Current version: 0.5.2 alpha
+## Current version: 0.5.3 alpha
+
+Version 0.5.3 can read an existing Google Photos shared album anonymously, including every page of a large album. Paste an album link that opens without signing in into **Shared Google Photos album link** on the frame's controls page. Shared mode uses no account cookies and rereads the shared page on each refresh. Signed-in access remains an alternative. Anyone who obtains the shared link can view the album; keep the link out of public files and screenshots.
+
+The Google web interface remains unofficial. This removes dependence on account-session exports in shared mode; it does not guarantee Google will never change or restrict shared-album access.
 
 Version 0.5.2 keeps local controls open during button actions, adds loading indicators and inline results, and restores proximity-triggered front button lights with an eight-second timeout on the tested Lenovo firmware.
 
 Version 0.5.1 replaces skipped background wake broadcasts with direct activity alarms, restores the frame's own daytime brightness, and shows the next scheduled wake in the controls page. Version 0.5 missed an overnight wake on the tested frame. The replacement passed a background-idle wake test; full overnight confirmation is still pending.
 
-FrameRevive reads an existing private Google Photos album over the frame's Wi-Fi connection. It replaces Lenovo's frame launcher and does not require an always-on laptop or a publicly shared album.
+FrameRevive reads an existing shared or signed-in Google Photos album over the frame's Wi-Fi connection. It replaces Lenovo's frame launcher and does not require an always-on laptop or a publicly shared album.
 
 - Hourly album refresh with complete, atomic index updates.
 - A shuffled mix of the newest 300 photos and photos captured within 14 calendar days of today in previous years.

@@ -36,3 +36,9 @@ web/dist/
 
 # IDE configuration is local to each developer
 /.idea/
+
+# Shared-album links grant access to photos; keep probe data local
+**/shared-album-url.txt
+**/shared-album-probe.html
+**/shared-ds-*.json
+**/shared-next.json
