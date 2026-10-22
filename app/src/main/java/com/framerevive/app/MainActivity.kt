@@ -48,6 +48,9 @@ class MainActivity : Activity() {
     private var sleeping = false
     private var failures = 0
     private var remote: FrameRemote? = null
+    private var localName: FrameLocalName? = null
+    private var stableUrl = ""
+    private var controlsUntil = 0L
     private val buttonLights by lazy { FrameButtonLights(this) }
     private var manageUrl = ""
     @Volatile private var availableAlbums = emptyList<PrivatePhotosClient.Album>()
@@ -87,6 +90,7 @@ class MainActivity : Activity() {
         }
         root.addView(caption, FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.START))
         controls = LinearLayout(this).apply {
+            visibility = View.GONE
             orientation = LinearLayout.VERTICAL; setPadding(24, 20, 24, 20)
             setBackgroundColor(0xDD222222.toInt())
         }
@@ -128,6 +132,11 @@ class MainActivity : Activity() {
                 java.util.Collections.list(it.inetAddresses)
             }.firstOrNull { it is java.net.Inet4Address && it.isSiteLocalAddress }?.hostAddress ?: "frame-ip"
             manageUrl = "http://$ip:8765/?key=$token"
+            val hostname = prefs.getString("localHostname", null) ?: "framerevive-${java.util.UUID.randomUUID().toString().take(8)}.local".also {
+                prefs.edit().putString("localHostname", it).apply()
+            }
+            stableUrl = "http://$hostname:8765/?key=$token"
+            localName = FrameLocalName(this, hostname)
             controls.addView(TextView(this).apply { text = "Manage from your phone or laptop:\n$manageUrl"; textSize = 13f; setTextColor(Color.LTGRAY) })
             remote = FrameRemote(token, { remotePage() }, { fields -> applyRemote(fields) })
         } catch (_: Exception) { status.append("\nPhone management could not start.") }
@@ -146,13 +155,15 @@ class MainActivity : Activity() {
         check(list.isNotEmpty()) { "Photo index is empty." }
         albumId = json.getString("albumId"); title = json.optString("title", "Your photo frame")
         sharedLink = json.optString("sharedLink")
+        if (json.optLong("syncedAt") > prefs.getLong("lastSuccessfulSync", 0))
+            prefs.edit().putLong("lastSuccessfulSync", json.optLong("syncedAt")).apply()
         if (sharedLink.isNotBlank()) client = PrivatePhotosClient(this, anonymous = true)
         photos = list; rebuild()
     }
 
     private fun saveCatalog(json: JSONObject) = PrivatePhotosClient.writeAtomic(File(filesDir, "album.json"), json.toString().toByteArray(Charsets.UTF_8))
     private fun rebuild() { day = LocalDate.now(); playlist = PhotoSelection.playlist(photos, day); index = 0 }
-    private fun showControls() { controls.visibility = View.VISIBLE; handler.removeCallbacks(hide); handler.postDelayed(hide, 15_000) }
+    private fun showControls() { controlsUntil = android.os.SystemClock.uptimeMillis() + 15_000; controls.visibility = View.VISIBLE; handler.removeCallbacks(hide); handler.postDelayed(hide, 15_000) }
 
     private fun settings() {
         val layout = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(24, 12, 24, 12) }
@@ -251,13 +262,14 @@ class MainActivity : Activity() {
                     caption.text = p.date().format(DateTimeFormatter.ofPattern("MMMM d, yyyy"))
                     caption.visibility = if (prefs.getBoolean("date", true)) View.VISIBLE else View.GONE
                     displayed = true; failures = 0
-                    handler.removeCallbacks(hide); handler.postDelayed(hide, 15_000)
+                    if (android.os.SystemClock.uptimeMillis() >= controlsUntil) controls.visibility = View.GONE
                     handler.postDelayed(advance, prefs.getInt("seconds", 30) * 1000L)
                 }
             } catch (e: Exception) {
                 handler.post {
                     if (closed || !active || ticket != generation) return@post
                     failures++; status.text = "$title\n${safeMessage(e)}\nTrying another photo."
+                    prefs.edit().putString("lastPhotoError", safeMessage(e)).putLong("lastPhotoErrorAt", System.currentTimeMillis()).apply()
                     if (!displayed) showControls()
                     if (e.message?.contains("HTTP 403") == true && System.currentTimeMillis() - lastPhotoRecovery > 300_000) {
                         lastPhotoRecovery = System.currentTimeMillis()
@@ -273,6 +285,7 @@ class MainActivity : Activity() {
     private fun sync(targetId: String = albumId, targetTitle: String = title, targetShared: String = sharedLink) {
         if (targetId.isBlank() || !syncing.compareAndSet(false, true)) return
         val statusGeneration = setupGeneration.get()
+        prefs.edit().putLong("lastSyncAttempt", System.currentTimeMillis()).apply()
         albumSwitching = targetId != albumId || targetShared != sharedLink
         if (!setupBusy.get()) setupMessage = "Loading $targetTitle. The existing slideshow continues until it is ready."
         status.text = "$targetTitle · checking Google Photos…"
@@ -294,6 +307,7 @@ class MainActivity : Activity() {
                 val rows = JSONArray()
                 fresh.forEach { p -> rows.put(JSONObject().put("id", p.id).put("url", p.url).put("takenMs", p.takenMs).put("offsetMs", p.offsetMs).put("discoveredMs",p.discoveredMs)) }
                 saveCatalog(JSONObject().put("albumId", targetId).put("title", actualTitle).put("sharedLink", targetShared).put("photos", rows).put("syncedAt", System.currentTimeMillis()))
+                prefs.edit().putLong("lastSuccessfulSync", System.currentTimeMillis()).remove("lastSyncError").apply()
                 val valid = fresh.map { cached(it).name }.toHashSet()
                 File(filesDir, "photo-cache").listFiles()?.filter { it.extension == "jpg" && it.name !in valid }?.forEach { it.delete() }
                 handler.post {
@@ -306,6 +320,7 @@ class MainActivity : Activity() {
                     }
                 }
             } catch (e: Exception) {
+                prefs.edit().putString("lastSyncError", safeMessage(e)).putLong("lastSyncErrorAt", System.currentTimeMillis()).apply()
                 if (setupGeneration.get() == statusGeneration)
                     setupMessage = "Could not update album: ${safeMessage(e)}. Your previous album remains selected."
                 handler.post { if (!closed) status.text = "$title\n${safeMessage(e)}\nKeeping the last complete photo index." }
@@ -388,11 +403,20 @@ class MainActivity : Activity() {
     private fun remotePage(): String {
         fun esc(s: String) = FrameRemote.escape(s)
         fun checked(name: String, default: Boolean = false) = if (prefs.getBoolean(name, default)) "checked" else ""
+        fun time(key: String): String = prefs.getLong(key, 0).let { if (it == 0L) "Not yet" else esc(java.text.DateFormat.getDateTimeInstance().format(java.util.Date(it))) }
         val options = availableAlbums.joinToString("") { a -> "<option value=\"${esc(a.id)}\" ${if (a.id == albumId) "selected" else ""}>${esc(a.title)}</option>" }
         return """<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>FrameRevive</title>
         
         <style>body{font:17px system-ui;background:#111923;color:#edf2f7;max-width:560px;margin:32px auto;padding:20px}h1{margin-bottom:8px}p{color:#bcc9d6;line-height:1.5}label{display:block;margin:20px 0}input,button{font:inherit;padding:10px;border-radius:8px}button{background:#b6e0bb;color:#102316;border:0;margin:8px 8px 8px 0}small{color:#aebdcd}button:disabled{opacity:.7;cursor:wait}button[aria-busy=true]:before{content:"";display:inline-block;width:12px;height:12px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;margin-right:8px;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}</style></head><body>
-        <h1>FrameRevive <small>0.5.3-alpha</small></h1><p id="albumSummary">${esc(title)} · ${photos.size} photos<br>Newest photos + memories from around today's date.</p>
+        <h1>FrameRevive <small>0.5.4-alpha</small></h1><p id="albumSummary">${esc(title)} · ${photos.size} photos<br>Newest photos + memories from around today's date.</p>
+        <section id="connectionStatus"><h2>Connection status</h2>
+        <p>Source: <strong>${if (sharedLink.isNotBlank()) "Shared Google Photos album · no account cookies" else "Signed-in Google Photos album"}</strong><br>
+        Album: ${esc(title)}<br>Last successful refresh: ${time("lastSuccessfulSync")}<br>Last refresh attempt: ${time("lastSyncAttempt")}<br>
+        Refresh: ${if (syncing.get()) "In progress…" else "Idle · checks hourly while running"}</p>
+        <p role="status">${prefs.getString("lastSyncError", null)?.let { "Refresh error (${time("lastSyncErrorAt")}): ${esc(it)}. The last complete album is retained." } ?: "No current album refresh error."}</p>
+        ${prefs.getString("lastPhotoError", null)?.let { "<p>Last photo download error (${time("lastPhotoErrorAt")}): ${esc(it)}. Cached photos can continue playing.</p>" } ?: ""}
+        <h2>Bookmark your controls</h2><p><a href="${esc(stableUrl)}">${esc(stableUrl)}</a><br><small>${esc(localName?.status ?: "Local hostname unavailable")}</small></p>
+        <p><small>The hostname stays the same if the frame's IP changes. Keep the full link, including its key, private. If your phone/router does not support local names, use the IP link or reserve the frame's IP in your router.</small></p></section>
         <h2>Google Photos</h2><p id="setupStatus" data-busy="${setupBusy.get() || albumSwitching || syncing.get()}">${esc(setupMessage)}</p>
         <form method="post"><label>Shared Google Photos album link <input type="url" required name="sharedLink" placeholder="https://photos.app.goo.gl/…"></label><button name="action" value="sharedAlbum">Use shared album</button></form>
         <p><small>For an album that opens without signing in. No account cookies are used in shared-link mode. Anyone with the album link can view its photos; keep it private. Changes to the same album are checked hourly.</small></p>
@@ -425,7 +449,7 @@ class MainActivity : Activity() {
           const response=await fetch(location.href,{cache:'no-store'});
           if(!response.ok)throw new Error('Could not read frame status.');
           const page=new DOMParser().parseFromString(await response.text(),'text/html');
-          for(const id of ['setupStatus','albumSummary','albumPicker','powerStatus']){
+          for(const id of ['setupStatus','albumSummary','albumPicker','powerStatus','connectionStatus']){
             const fresh=page.getElementById(id),current=document.getElementById(id);
             if(fresh&&current){
               if(id==='albumPicker'&&document.activeElement&&current.contains(document.activeElement))continue;
@@ -433,7 +457,7 @@ class MainActivity : Activity() {
             }
           }
           clearTimeout(timer);
-          if(document.getElementById('setupStatus').dataset.busy==='true')timer=setTimeout(poll,4000);
+          timer=setTimeout(poll,document.getElementById('setupStatus').dataset.busy==='true'?4000:15000);
         }
         async function poll(){try{await updateStatus();}catch(error){result.textContent='Status update interrupted. Retrying…';timer=setTimeout(poll,5000);}}
         async function send(body,button){
@@ -459,7 +483,7 @@ class MainActivity : Activity() {
           try{await send(new URLSearchParams({action:'importSession',session:await file.text()}),this);}
           catch(error){result.textContent='Could not read the selected file.';}
         });
-        if(document.getElementById('setupStatus').dataset.busy==='true')timer=setTimeout(poll,4000);
+        timer=setTimeout(poll,4000);
         </script></body></html>""".trimIndent()
     }
     private fun applyRemote(fields: Map<String, String>): String {
@@ -510,5 +534,5 @@ class MainActivity : Activity() {
             }
         } catch (_: Exception) { "Could not save. Use valid times and 10 to 300 seconds per photo." }
     }
-    override fun onDestroy() { closed = true; remote?.close(); handler.removeCallbacksAndMessages(null); images.shutdownNow(); network.shutdownNow(); super.onDestroy() }
+    override fun onDestroy() { closed = true; localName?.close(); remote?.close(); handler.removeCallbacksAndMessages(null); images.shutdownNow(); network.shutdownNow(); super.onDestroy() }
 }

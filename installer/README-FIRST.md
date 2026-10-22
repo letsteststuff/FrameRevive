@@ -73,3 +73,12 @@ This restores Lenovo's launcher, not its discontinued Google Photos connection. 
 Use version 0.5.1 or later for the corrected wake path and daytime brightness control. Version 0.5 missed a morning wake on the test frame. The new direct-activity wake passed a background-idle test; another full overnight check is still needed.
 
 Photo playback, real screen-off/wake, and reboot startup were tested on one Lenovo Smart Frame. Refresh runs hourly while the app is running. Offline playback covers previously downloaded photos. Setup still needs testing on another person's frame and account. Long-term Google session durability is not established.
+
+
+## 0.5.4 connection status and stable bookmark
+
+The local controls page shows the current source, last successful refresh, last attempt, current refresh error, and the most recent photo-download error with a timestamp. Successful refreshes clear the current refresh error. Status updates every 15 seconds without overwriting unsaved display settings.
+
+During playback the frame shows photos and optional captions. Tap with a connected input device to reveal the on-frame controls for 15 seconds. Photo changes no longer extend that timer.
+
+Use **Bookmark your controls** on the page to save the full private hostname link. Each installation generates a hostname such as `framerevive-a1b2c3d4.local`. The mDNS responder returns the current Wi-Fi IPv4 address and never advertises the management key. Keep the key in the saved URL; the hostname does not replace authentication. It works only on the same local network while the app/frame is awake. Some networks block multicast or lack local-name support; keep the IP link as a fallback, or use a router DHCP reservation. A factory reset or clearing app data creates a new hostname and key.

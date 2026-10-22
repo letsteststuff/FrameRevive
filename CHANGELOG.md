@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.4-alpha
+
+- Added current source, last refresh success/attempt, refresh errors, and timestamped photo-download errors to local controls, with background status polling.
+- Keep on-frame controls hidden during playback; explicit taps reveal them for 15 seconds without photo changes extending the timer.
+- Added an IPv4 mDNS hostname with a per-install random suffix, independent of the secret management key. The stable bookmark retains authentication. IP/DHCP-reservation fallback remains available.
+- Added bounded DNS parser tests and clean HTTP response shutdown for early form rejection.
+- Increased version code to 9. Existing source, session, album, and display settings are preserved.
+
+
 ## 0.5.3-alpha
 
 - Added shared-album links as an anonymous, cookie-free source, with full pagination and atomic index replacement. Signed-in album access remains available.

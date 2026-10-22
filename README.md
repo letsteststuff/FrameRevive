@@ -4,7 +4,9 @@ A standalone Android photo-frame app for the discontinued Lenovo Smart Frame (CD
 
 **`main` is the maintained branch.** The older prototype branches are historical; start new work and builds from `main`. See the [documentation index](docs/README.md).
 
-## Current version: 0.5.3 alpha
+## Current version: 0.5.4 alpha
+
+Version 0.5.4 adds refresh/error status on the controls page, hides on-frame controls during playback, and provides a persistent per-frame `.local` bookmark on mDNS-capable networks. The existing private management key is still required.
 
 Version 0.5.3 can read an existing Google Photos shared album anonymously, including every page of a large album. Paste an album link that opens without signing in into **Shared Google Photos album link** on the frame's controls page. Shared mode uses no account cookies and rereads the shared page on each refresh. Signed-in access remains an alternative. Anyone who obtains the shared link can view the album; keep the link out of public files and screenshots.
 
