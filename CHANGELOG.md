@@ -1,5 +1,56 @@
 # Changelog
 
+## 0.5.15-alpha
+
+- Advance Plus/Minus on initial press rather than waiting for release; ignore repeats and release duplicates. Star retains short/hold behavior.
+
+- Bound photo work to one active and one latest pending request. Skip obsolete work before decoding/blur, and retain the current photo while loading.
+- Add on-frame and web Loading photo status. Shorten image-specific connect/read timeouts without changing album-scan timeouts.
+- Retain Previous/Next displayed-photo history across same-album refreshes, replacing temporary URLs and removing deleted photos.
+- Increased version code to 20.
+
+## 0.5.14-alpha
+
+- Map verified front Plus/Minus buttons to photo navigation and Star to pause/resume; holding Star opens controls without toggling on release.
+- Add persistent on-frame Paused indicator and web pause/resume controls. Keep scheduled sleep and album refresh independent of pause.
+- Add a device-generated QR code for the private controls link, Close button, and 30-second overlay timeout.
+- Vendor the MIT-licensed Nayuki Java QR encoder with its license notices; no QR network service is used.
+- Increased version code to 19.
+
+## 0.5.13-alpha
+
+- Show the frame's own date, time, time-zone ID and UTC offset beside the sleep schedule. Refresh the reading through existing status polling rather than using the phone or laptop clock.
+- Increased version code to 18.
+
+## 0.5.12-alpha
+
+- Fill unused photo space with a darkened, blurred copy while retaining the sharp full image. Enabled by default in fit mode; crop mode retains priority.
+- Add a blurred-background switch in web and native settings. Blur is prepared on the image worker at a bounded 96-pixel resolution.
+- Increased version code to 17.
+
+## 0.5.11-alpha
+
+- Simplify controls styling to neutral charcoal with blue accents, system typography, compact headings, and direct functional labels. Remove promotional copy.
+- Keep the Everyday, Setup, and Debug tabs and existing controls unchanged.
+- Increased version code to 16.
+
+## 0.5.10-alpha
+
+- Redesigned the private controls page with Everyday, Setup, and Debug & updates tabs, responsive cards, larger touch controls, and keyboard navigation.
+- Keep playback and display settings on Everyday; place album setup and HTTPS pairing under Setup.
+- Add GitHub repository/release links and a copyable diagnostics summary that excludes private links, keys, cookies, album titles, and raw error messages.
+- Preserve background status updates without resetting unsaved display settings or the active tab.
+- Increased version code to 15. Existing app data and device certificate are preserved.
+
+## 0.5.9-alpha
+
+- Restore native left/right hand gestures, orientation mapping, Previous navigation and a gesture setting. Owner confirmed both directions.
+
+## 0.5.8-alpha
+
+- Require paired HTTPS with persistent Android Keystore identity; rotate the old HTTP management key once.
+- Bound management concurrency and connection lifetime. Update certificate pairing, installer readiness and recovery guidance.
+
 ## 0.5.7-alpha
 
 - Explicitly wake a locked display when a settings change leaves an active scheduled-sleep interval, rather than only restoring brightness.
@@ -74,6 +125,14 @@
 - Established the standalone native slideshow, private Google Photos album access, local controls, caching, launcher support, and nightly scheduling.
 
 See the [prototype changelog](docs/archive/CHANGELOG-prototype.md) for the retired implementation.
+# 0.5.9-alpha — hand gestures
+
+- Restore left-to-next and right-to-previous hand gestures using the frame's existing gesture input device, with no camera access.
+- Follow Lenovo's direction mapping across display rotations and apply an 800 ms cooldown.
+- Add a gesture on/off setting, last-gesture status and Previous buttons. Gestures pause during sleep and while on-frame controls are visible.
+- Track up to 60 actually displayed photos for backward/forward navigation; reset history on app restart or completed album refresh.
+- Build, 38 unit tests and lint passed. Owner confirmed both directions on the installed frame; normal settings restored.
+
 # 0.5.8-alpha — security update
 
 - Require HTTPS management with a persistent per-frame Android Keystore identity and explicit certificate pairing.

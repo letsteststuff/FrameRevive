@@ -82,8 +82,8 @@ class PrivatePhotosClient(private val context: Context, private val anonymous: B
             require(allowed(url)) { "Google sign-in needs renewal, or the image service changed." }
             val connection = url.openConnection() as HttpURLConnection
             try {
-                connection.connectTimeout = 25000
-                connection.readTimeout = 35000
+                connection.connectTimeout = if (image) 8000 else 25000
+                connection.readTimeout = if (image) 12000 else 35000
                 connection.instanceFollowRedirects = false
                 connection.setRequestProperty("User-Agent", "Mozilla/5.0")
                 val cookie = if (anonymous) "" else header(url)

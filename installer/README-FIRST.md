@@ -2,7 +2,7 @@
 
 This alpha is for the Lenovo Smart Frame CD-3L501F running Android 10. It replaces the discontinued Lenovo photo app with a standalone Google Photos slideshow. It does not require root or a factory reset.
 
-Version 0.5.8-alpha adds encrypted HTTPS controls and protection against slow connections blocking management. It includes shared-album setup without Google account cookies, owner-confirmed webpage updates, controls that stay on the page, and proximity-triggered front button lights. To upgrade an existing installation, run this installer with the new APK; do not uninstall first.
+Version 0.5.15-alpha includes neutral tabbed HTTPS controls, hand gestures, blurred photo backgrounds, the frame's clock, and front-button playback controls. Plus advances immediately on press, Minus goes back, Star pauses/resumes, and holding Star opens controls with a private QR code. A Paused label stays visible while paused. Sleep and album refresh continue independently. Photo loading now keeps only the latest pending request and preserves navigation history during album refreshes. To upgrade, install the new APK without uninstalling first.
 
 ## 1. Prepare the frame
 
@@ -53,6 +53,8 @@ Use **Connect or renew Google Photos** on the new local setup page:
 The session is sent directly to your frame and stored encrypted. No album-index file is needed. Never send your cookies to someone else or commit them to GitHub. Delete the export after successful setup. This uses an unofficial Google Photos web interface; Google may require a fresh export later.
 
 ## 4. Use without the computer
+
+Version 0.5.9 supports hand gestures on the Lenovo CD-3L501F: wave left for the next photo and right for a previously displayed photo. Pause about a second between waves. The **Hand gestures** option is under Display settings; gestures pause during sleep and while on-frame controls are open. See the [gesture guide](../docs/gestures.md).
 
 Bookmark the **Home Wi-Fi** link in `local/frame-controls.txt` on your phone. It changes the album, photo interval, fit/fill, date captions, and nightly off/on schedule. It also renews the session without ADB.
 
