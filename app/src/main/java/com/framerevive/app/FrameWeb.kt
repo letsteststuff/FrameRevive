@@ -2,7 +2,7 @@ package com.framerevive.app
 
 /** Presentation only. All owner/Google text is escaped; HTML fragments come from our own renderers. */
 object FrameWeb {
-    const val VERSION = "0.5.15-alpha"
+    const val VERSION = "0.5.16-alpha"
     data class Album(val id: String, val title: String)
     data class State(val text: Map<String, String>, val flags: Set<String>, val albums: List<Album> = emptyList(),
                      val updateHtml: String = "", val recoveryHtml: String = "")
@@ -24,7 +24,7 @@ object FrameWeb {
         <section id="everyday" class="tab-panel" role="tabpanel" aria-labelledby="tab-everyday">
           <div class="page-heading"><h1>Frame controls</h1><p>Playback, display and sleep settings.</p></div>
           <div id="everydayStatus" class="health $tone" role="status"><span class="status-dot" aria-hidden="true"></span><div><strong>$health</strong><p>$detail</p></div>${if(needsSetup || attention) "<a class='text-link' href='#${if(needsSetup) "setup" else "debug"}'>${if(needsSetup) "Open setup" else "View details"} ↗</a>" else ""}</div>
-          <article class="card now-card"><div class="card-heading"><span class="eyebrow">ALBUM</span><span class="source-tag">$source</span></div><div id="albumSummary"><h2 class="album-title">${value("title")}</h2><div class="metrics"><div><strong>${value("photoCount")}</strong><span>photos</span></div><div><strong>${value("pending")}</strong><span>waiting to display</span></div></div><p class="muted">New additions first, then recent photos and memories from this time in years past.</p><p class="last-updated">Last refreshed · ${value("lastSync")}</p></div>
+          <article class="card now-card"><div class="card-heading"><span class="eyebrow">ALBUM</span><span class="source-tag">$source</span></div><div id="albumSummary"><h2 class="album-title">${value("title")}</h2><div class="metrics"><div><strong>${value("photoCount")}</strong><span>photos</span></div><div><strong>${value("pending")}</strong><span>waiting to display</span></div></div><p class="muted">New additions get one priority showing. Then: the 300 newest by capture date, alternating with memories from this time in past years.</p><p class="last-updated">Last refreshed · ${value("lastSync")}</p></div>
           <div id="playbackState"><p class="muted">Playback: <strong>${if(has("paused")) "Paused" else "Playing"}</strong>${if(has("photoLoading")) " · Loading photo…" else ""}</p><form method="post"><button name="action" value="${if(has("paused")) "resume" else "pause"}" class="secondary">${if(has("paused")) "Resume slideshow" else "Pause slideshow"}</button></form></div><form method="post" class="playback-actions"><button name="action" value="previous" class="secondary"><span aria-hidden="true">←</span> Previous</button><button name="action" value="next" class="primary">Next photo <span aria-hidden="true">→</span></button><button name="action" value="refresh" class="quiet">↻ Refresh album</button></form></article>
           <form method="post" id="displaySettings"><div class="settings-grid">
             <article class="card"><h2>Playback &amp; display</h2><label>Seconds per photo<input type="number" min="10" max="300" required name="seconds" value="${value("seconds")}"><small>Choose between 10 and 300 seconds.</small></label><label>Daytime brightness<span class="input-unit"><input type="number" min="5" max="100" required name="brightness" value="${value("brightness")}"><span>%</span></span></label>

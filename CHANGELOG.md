@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.16-alpha
+
+- Rank the recent 300 strictly by capture timestamp, not discovery/upload time. Keep the one-time priority showing for additions and the seasonal memories pool.
+- Add regression tests for an old upload entering priority but not displacing recent captures, and for seasonal eligibility.
+- Increased version code to 21.
+
 ## 0.5.15-alpha
 
 - Advance Plus/Minus on initial press rather than waiting for release; ignore repeats and release duplicates. Star retains short/hold behavior.

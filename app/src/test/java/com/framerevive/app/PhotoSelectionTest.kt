@@ -22,10 +22,24 @@ class PhotoSelectionTest {
         assertEquals(1, PhotoSelection.distance(LocalDate.parse("2020-02-29"), LocalDate.parse("2026-03-01")))
     }
     @Test fun emptyAlbumIsSafe() { assertTrue(PhotoSelection.playlist(emptyList(), LocalDate.now()).isEmpty()) }
-    @Test fun newlyAddedOlderPhotoJoinsRecentPool() {
-        val existing = (0..299).map { photo("existing$it", "2025-01-01") }
-        val addition = photo("newlyAdded", "2008-01-01").copy(discoveredMs = photo("now", "2026-10-20").takenMs)
-        assertTrue(PhotoSelection.playlist(existing + addition, LocalDate.parse("2026-10-20")).any { it.id == "newlyAdded" })
+    @Test fun oldUploadGetsPriorityOnceButDoesNotDisplaceRecentCaptures() {
+        val today = LocalDate.parse("2026-10-20")
+        val recent = (0..299).map { photo("recent$it", "2026-09-01") }
+        val oldUpload = photo("oldUpload", "2008-01-01").copy(discoveredMs = photo("now", "2026-10-20").takenMs)
+        val all = recent + oldUpload
+        val normal = PhotoSelection.playlist(all,today,Random(42))
+        assertEquals(recent.map { it.id }.toSet(), normal.map { it.id }.toSet())
+        val firstPass = PhotoSelection.prioritize(normal,all,setOf(oldUpload.id))
+        assertEquals(oldUpload.id,firstPass.first().id)
+        assertEquals(1,firstPass.count { it.id == oldUpload.id })
+        assertFalse(PhotoSelection.prioritize(normal,all,emptySet()).any { it.id == oldUpload.id })
+    }
+    @Test fun anOldUploadCanStillAppearAsASeasonalMemory() {
+        val recent = (0..299).map { photo("recent$it", "2026-09-01") }
+        val memory = photo("memoryUpload", "2008-10-21").copy(discoveredMs = Long.MAX_VALUE)
+        val result = PhotoSelection.playlist(recent + memory,LocalDate.parse("2026-10-20"),Random(42))
+        assertTrue(result.filterIndexed { i,_ -> i % 2 == 1 }.all { it.id == memory.id })
+        assertEquals(recent.map { it.id }.toSet(),result.filterIndexed { i,_ -> i % 2 == 0 }.map { it.id }.toSet())
     }
     @Test fun oldAlbumStillDisplaysNewestAvailable() {
         val photos = listOf(photo("old", "2019-04-01"), photo("new", "2020-05-01"))

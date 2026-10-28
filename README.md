@@ -4,18 +4,19 @@ A standalone Android photo-frame app for the discontinued Lenovo Smart Frame (CD
 
 **`main` is the maintained branch.** The older prototype branches are historical; start new work and builds from `main`. See the [documentation index](docs/README.md).
 
-## Current version: 0.5.15 alpha
+## Current version: 0.5.16 alpha
 
 The tested build includes a shared Google Photos album source, automatic checks for additions, a neutral three-tab HTTPS controls page, blurred photo backgrounds, a frame clock/time-zone display, hand gestures, and front-button navigation with pause/resume.
 
 - **Plus / Minus:** next / previous photo on initial press.
 - **Star:** pause/resume with a persistent Paused label. Hold about 2.5 seconds for the controls overlay, private QR code and address; the menu closes after 30 seconds without input.
 - **Web controls:** Everyday, Setup, and Debug & updates, including APK upload, safe diagnostics, and GitHub links.
+- **Photo mix:** new additions get one priority showing, then the recent 300 are ranked strictly by capture date, alternating with seasonal years-past memories. Upload date does not affect the recent group.
 - **Navigation:** one active image operation and only the latest pending request, loading feedback, and history retained across same-album refreshes.
 
-Build, 46 unit tests, and lint passed. The owner confirmed front buttons, pause, held-Star overlay, blurred backgrounds, gestures, sleep/wake, automatic additions, and improved navigation on the tested Android 10 frame. See [web controls](docs/web-controls.md), [front buttons](docs/front-buttons.md), [gestures](docs/gestures.md), and [recovery](docs/recovery.md).
+Build, 47 unit tests, and lint passed. The owner confirmed front buttons, pause, held-Star overlay, blurred backgrounds, gestures, sleep/wake, automatic additions, and improved navigation on the tested Android 10 frame. See [web controls](docs/web-controls.md), [front buttons](docs/front-buttons.md), [gestures](docs/gestures.md), and [recovery](docs/recovery.md).
 
-For Windows installation, download **FrameRevive-0.5.15-Windows.zip** from the release assets, extract it, and follow **README-FIRST.md**. GitHub's automatic Source code archives are for building from source. Existing installations can upload **FrameRevive-0.5.15-alpha.apk** through Debug & updates; Android asks for confirmation on the frame. Do not uninstall first.
+For Windows installation, download **FrameRevive-0.5.16-Windows.zip** from the release assets, extract it, and follow **README-FIRST.md**. GitHub's automatic Source code archives are for building from source. Existing installations can upload **FrameRevive-0.5.16-alpha.apk** through Debug & updates; Android asks for confirmation on the frame. Do not uninstall first.
 
 Version 0.5.8 requires HTTPS for management and rotates the old HTTP management key once. Each frame has a persistent device certificate backed by Android Keystore. Pair its SHA-256 fingerprint through the physical frame or authorized USB before trusting it in a browser. Old HTTP bookmarks stop working. See [HTTPS pairing](docs/security-pairing.md). Slow connections now have absolute deadlines and bounded concurrency. Build, unit tests, lint, and HTTPS settings/upload/restart checks passed on the tested Android 10 Lenovo frame.
 

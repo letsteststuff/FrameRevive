@@ -22,11 +22,11 @@ object PhotoSelection {
         return min(days, 366 - days)
     }
 
-    // Equal turns for the newest 300 available photos and a +/-14-day seasonal pool.
+    // Equal turns for the newest 300 by capture time and a +/-14-day seasonal pool.
     // Each pool is shuffled without replacement; dates are recalculated each day.
     fun playlist(photos: List<FramePhoto>, today: LocalDate, random: Random = Random.Default): List<FramePhoto> {
         if (photos.isEmpty()) return emptyList()
-        val latest = photos.sortedByDescending { maxOf(it.takenMs, it.discoveredMs) }.take(300).shuffled(random)
+        val latest = photos.sortedByDescending { it.takenMs }.take(300).shuffled(random)
         val memories = photos.filter { it.date().year < today.year && distance(it.date(), today) <= 14 }
             .shuffled(random).filter { p -> latest.none { it.id == p.id } }
         if (memories.isEmpty()) return latest

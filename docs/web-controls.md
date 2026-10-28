@@ -5,3 +5,5 @@
 - **Debug & updates**: connection/activity details, copy diagnostics, upload and verify an APK, recovery steps, and GitHub repository/releases links.
 
 Tabs work on phones and with a keyboard. Background status updates preserve unsaved display fields. Copy diagnostics excludes private links, album titles, credentials, and raw error messages. The controls bookmark still contains a private access key; keep it private.
+
+The normal photo mix alternates the 300 newest photos by capture time with previous-year photos within 14 days of today's date. New additions get one priority showing regardless of capture date. Discovery/upload time does not change membership in the recent 300.
