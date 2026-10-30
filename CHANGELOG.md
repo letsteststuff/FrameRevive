@@ -1,5 +1,59 @@
 # Changelog
 
+## 0.5.24-alpha
+
+- Show the active Google Photos shared-album link in Debug connection status, with wrapping for phone screens.
+- Keep the link out of copied diagnostics; new setup and legacy sessions show appropriate empty-state text.
+
+## 0.5.23-alpha
+
+- Make shared Google Photos links the supported setup path; remove cookie-import instructions, signed-in album picker and renewal actions.
+- Retain existing encrypted sessions and selected albums temporarily, with a migration notice. New imports, including plaintext developer imports, are no longer consumed.
+- Keep the old complete catalog until a replacement shared album loads successfully.
+- Update installation/recovery guidance and record network-folder/SMB sources on the roadmap; network folders are not implemented yet.
+
+## 0.5.22-alpha
+
+- Remove the on-frame loading label during photo changes. Keep the current image visible until the next one is ready.
+- Keep loading status on the private webpage and preserve the 600 ms crossfade.
+
+## 0.5.21-alpha
+
+- Add an optional 600 ms crossfade between photos and collages, enabled by default in Everyday.
+- Keep the current photo visible during loading, and fade only when the replacement is ready.
+- Retain at most the current and previous image; rapid presses replace any unfinished fade.
+- Finish the fade when pausing, sleeping, leaving the activity or switching transitions off.
+
+## 0.5.20-alpha
+
+- Alternate 2-, 3- and 4-photo collages while preserving the saved frequency.
+- Choose portrait, landscape and mixed layouts using photo dimensions; keep every full photo visible.
+- Preview cycles through all three sizes, and Debug reports the next automatic collage size.
+- Decode only one image at a time while composing, with a bounded output size.
+
+## 0.5.19-alpha
+
+- Replace experimental burst playback with optional four-photo collages after every 20 individual photos; adjustable from 5 to 100.
+- Keep each photo fully visible, with per-cell blurred backgrounds and optional dates.
+- Wait for four cached images before automatic collages; keep individual playback moving while they prepare.
+- Preserve pause and slide history, and add a Debug collage preview and cadence status.
+- Retain automatic preloading, adjustable photo mix and the full-screen restoration fix.
+
+## 0.5.18-alpha
+
+- Restore immersive full-screen mode on resume and focus, including after returning from Android Settings.
+- Require local color/composition similarity and matching framing before a timestamp candidate can animate. Reject uniform frames and obvious scene changes; show the review result in Debug.
+- Keep the owner's burst toggle off after the failed timestamp-only preview until visual revalidation.
+- Increased version code to 23. Build, 61 unit tests and lint passed. Installed over Wi-Fi; unrelated-candidate rejection and fullscreen after Settings were verified. True-burst visual confirmation is pending.
+
+## 0.5.17-alpha
+
+- Preload upcoming photos using one background worker and a bounded replacement plan. Add Ready/Loading/Queued/Failed states to Debug.
+- Add a Recent/Memories percentage slider, recent capture count, and seasonal date window; preserve the 300/14/50 defaults and first-display priority.
+- Add automatic optional burst playback for conservative timestamp groups of 3–12 images. Prepare frames from disk at bounded resolution, play chronologically, then hold the final photo at normal resolution.
+- Keep manual navigation, pause and scheduled sleep able to interrupt sequences. Preloading pauses while inactive/asleep.
+- Increased version code to 22. Build, 56 unit tests and lint passed; installed over Wi-Fi. Live preload/mix/burst interruption and lifecycle checks passed. Owner visual confirmation is pending.
+
 ## 0.5.16-alpha
 
 - Rank the recent 300 strictly by capture timestamp, not discovery/upload time. Keep the one-time priority showing for additions and the seasonal memories pool.

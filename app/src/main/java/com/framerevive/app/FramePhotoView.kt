@@ -1,5 +1,6 @@
 package com.framerevive.app
 
+import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -12,24 +13,69 @@ import androidx.appcompat.widget.AppCompatImageView
 class FramePhotoView(context: Context) : AppCompatImageView(context) {
     var blurredBackground = true
         set(value) { field = value; invalidate() }
+    var gentleTransitions = true
+        set(value) { field=value;if(!value) finishTransition() }
+    private var photo: Bitmap? = null
     private var backdrop: Bitmap? = null
+    private var previousPhoto: Bitmap? = null
+    private var previousBackdrop: Bitmap? = null
+    private var transition: ValueAnimator? = null
+    private var progress=1f
     private val backdropPaint = Paint(Paint.FILTER_BITMAP_FLAG)
 
+    /** Only the current and immediately previous image are retained, even during rapid presses. */
     fun setPhoto(photo: Bitmap, background: Bitmap) {
-        val old = backdrop
-        backdrop = background
+        finishTransition()
+        val oldPhoto=this.photo;val oldBackground=backdrop
+        this.photo=photo;backdrop=background
         setImageBitmap(photo)
-        old?.recycle()
+        if(gentleTransitions && oldPhoto != null && isShown) {
+            previousPhoto=oldPhoto;previousBackdrop=oldBackground;progress=0f
+            transition=ValueAnimator.ofFloat(0f,1f).apply {
+                duration=600
+                addUpdateListener {
+                    progress=it.animatedValue as Float
+                    if(progress>=1f) { previousPhoto=null;previousBackdrop=null }
+                    invalidate()
+                }
+                start()
+            }
+        }
+        invalidate()
     }
 
-    override fun onDraw(canvas: Canvas) {
-        backdrop?.takeIf { blurredBackground && scaleType != ScaleType.CENTER_CROP }?.let { b ->
+    fun finishTransition() {
+        transition?.cancel();transition=null;progress=1f
+        previousPhoto=null;previousBackdrop=null;invalidate()
+    }
+
+    fun release() {
+        finishTransition();setImageDrawable(null);photo=null;backdrop=null
+    }
+
+    override fun onDetachedFromWindow() { finishTransition();super.onDetachedFromWindow() }
+
+    private fun drawBackdrop(canvas:Canvas,background:Bitmap?) {
+        canvas.drawColor(Color.BLACK)
+        background?.takeIf { blurredBackground && scaleType != ScaleType.CENTER_CROP }?.let { b ->
             val scale = maxOf(width.toFloat() / b.width, height.toFloat() / b.height)
             val w = b.width * scale; val h = b.height * scale
             canvas.drawBitmap(b, null, RectF((width-w)/2, (height-h)/2, (width+w)/2, (height+h)/2), backdropPaint)
             canvas.drawColor(0x55000000)
         }
-        super.onDraw(canvas)
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        val old=previousPhoto
+        if(old != null && progress<1f) {
+            drawBackdrop(canvas,previousBackdrop)
+            val scale=if(scaleType==ScaleType.CENTER_CROP) maxOf(width.toFloat()/old.width,height.toFloat()/old.height)
+                else minOf(width.toFloat()/old.width,height.toFloat()/old.height)
+            val w=old.width*scale;val h=old.height*scale
+            canvas.drawBitmap(old,null,RectF((width-w)/2,(height-h)/2,(width+w)/2,(height+h)/2),backdropPaint)
+            val layer=canvas.saveLayerAlpha(0f,0f,width.toFloat(),height.toFloat(),(progress*255).toInt())
+            drawBackdrop(canvas,backdrop);super.onDraw(canvas);canvas.restoreToCount(layer)
+        } else { drawBackdrop(canvas,backdrop);super.onDraw(canvas) }
     }
 
     companion object {

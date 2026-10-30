@@ -4,7 +4,7 @@ Black screen
 Check power first. If it is within your sleep schedule, wait until wake time. If the controls page works, check the schedule and daytime brightness. In 0.5.7 or later, disabling scheduled sleep and saving wakes the display immediately; moving the schedule outside the current time also wakes it. Use your Bluetooth mouse to bring up controls. If it is unresponsive, disconnect and reconnect frame power once. Avoid factory reset or uninstalling; those can lose account/settings data. Reconnect USB/ADB if the launcher does not recover.
 
 Photos stopped or HTTP 403
-Read Connection status and try Refresh album. Shared-link mode does not need account cookies: check that the saved album link still opens without sign-in and that link sharing is enabled. If necessary paste the working shared link again. For signed-in mode, use Connect or renew Google Photos and reselect the album. Cached photos can keep playing while Google is unavailable.
+Read Connection status and try Refresh album. Shared-link mode does not need account cookies: check that the saved album link still opens without sign-in and that link sharing is enabled. If necessary paste the working shared link again. Saved-session sign-in is deprecated and cannot be renewed. Switch the same album to a shared link in Setup. Cached photos can keep playing while Google is unavailable.
 
 Controls page will not open
 Your phone/computer must be on the same home Wi-Fi, and the frame must be awake. Use the full saved link, including its key. Try the IP link if .local names do not work on your network. Guest networks/client isolation may prevent access. A router DHCP reservation is the fallback for a stable IP.

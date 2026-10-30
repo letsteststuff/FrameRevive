@@ -2,22 +2,13 @@
 
 This document describes the alpha's internals and recovery. For installation and guided account setup, use [the start-here guide](../installer/README-FIRST.md).
 
-## Guided setup and local data
+## Supported setup and local data
 
-The ordinary setup flow no longer needs a developer-created seed. After installation, open the private management page, import a Netscape-format Google Photos session export, then choose an album. The frame validates the session before replacing any working session and reads every album page to build its own complete index. A failed album load retains the previous selected album.
+Open Setup on the private HTTPS controls page and connect a shared Google Photos album link that opens without signing in. A failed load retains the previous complete catalog. No cookie export or developer-created seed is required.
 
-Session import is sent directly to the frame, filters unrelated/expired cookies, and saves only encrypted session data. The installer opens a USB-forwarded localhost page for initial setup; subsequent account renewal and album changes can use the private Wi-Fi management page. There is no proxy account or shared login.
+Signed-in setup and renewal are retired as of 0.5.23. Existing `google-session.enc` encrypted credentials and their selected `album.json` catalog remain for compatibility playback and refresh. They are not deleted by the upgrade. Setup shows a migration notice; an expired session cannot be renewed through the app. New plaintext `session-import.txt` files are no longer consumed. `album-seed.json` remains a legacy catalog migration path, not ordinary setup.
 
-For compatibility with the earlier developer-assisted alpha, these two private imports remain supported:
-
-The app imports two files from its private `files/` directory on first launch:
-
-- `session-import.txt`: Netscape-format cookies from a dedicated signed-in Google Photos browser session. Only Google Photos-relevant cookies are retained, including `photos.fife.usercontent.google.com`. The import is encrypted with an Android Keystore key, then the plaintext import is deleted.
-- `album-seed.json`: a complete album index with `albumId`, `title`, and a `photos` array. Each photo has `id`, `url`, `takenMs`, and optional `offsetMs` and `discoveredMs`. The seed becomes the local `album.json`; the app subsequently refreshes the selected album directly from Google.
-
-Keep these files outside the repository. The access probe remains available for diagnostics. It is not needed for ordinary guided setup.
-
-Install the debug APK with ADB. Private files can be provisioned using `adb shell run-as com.framerevive.app` for this debuggable alpha. Delete any temporary shared copies immediately after import. Do not put credentials in command arguments, logs, Git, or an APK.
+Runtime catalogs, cached photos, encrypted credentials and management URLs belong only in the frame's private data, never a shared installer or Git repository.
 
 ## Launcher and screen power
 
@@ -41,7 +32,7 @@ Verify the package names on other models first. Do not disable Android system se
 
 The controls overlay displays a private management URL on TCP port 8765. Open it from a phone or computer on the same trusted home network. Every request requires a randomly generated per-install key. The management server uses HTTP, has no cloud relay, and must not be exposed by router port forwarding.
 
-Settings include Google session renewal, private-album selection, photo interval, fit/fill, date captions, and nightly sleep/wake times. Scheduling is off by default. With the screen-lock administrator enabled, scheduled sleep turns the display off; a wake alarm turns it on again. Without administrator activation, the app falls back to dimming to black. Times use the frame's timezone.
+Settings include shared-album connection, photo interval, fit/fill, date captions, and nightly sleep/wake times. Scheduling is off by default. With the screen-lock administrator enabled, scheduled sleep turns the display off; a wake alarm turns it on again. Without administrator activation, the app falls back to dimming to black. Times use the frame's timezone.
 
 A DHCP reservation is recommended for a stable management address. The private key persists if the IP address changes. The current address is computed at app startup, so restart the app to refresh the displayed address after a network change. Controls may not be reachable while the frame is asleep.
 
@@ -81,7 +72,7 @@ On the tested Lenovo firmware, the native app controls the separate `led` system
 
 Paste a Google Photos shared-album URL that opens without sign-in into the local controls page. The app resolves only HTTPS Google Photos short links or /share/ pages, reads the initial data and every continuation page, and replaces the saved index only when the entire scan succeeds. The shared URL is stored in private app data for future refreshes. It is omitted from installer bundles and source files.
 
-Shared requests use a dedicated anonymous client: no account cookies are sent or accepted, and an anonymous request does not require an authenticated request token. Each sync obtains fresh web metadata and photo URLs from the shared page. Hourly checks and manual refresh both use this source after restart. Signed-in album selection switches back to the encrypted-session client.
+Shared requests use a dedicated anonymous client: no account cookies are sent or accepted, and an anonymous request does not require an authenticated request token. Each sync obtains fresh web metadata and photo URLs from the shared page. Hourly checks and manual refresh both use this source after restart. Existing signed-in albums retain the encrypted-session client temporarily; new setup cannot select a signed-in album.
 
 Image HTTP 403 errors trigger a rate-limited refresh (maximum once per five minutes); successful cached playback stays on screen without repeatedly reopening the failure controls. Google can revoke or change shared links, so cookie-free access does not imply guaranteed permanent availability.
 

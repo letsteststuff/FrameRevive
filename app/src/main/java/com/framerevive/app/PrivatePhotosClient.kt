@@ -37,14 +37,9 @@ class PrivatePhotosClient(private val context: Context, private val anonymous: B
         }.generateKey()
     }
 
-    @Synchronized fun importSessionIfPresent() {
-        val incoming = File(context.filesDir, "session-import.txt")
-        if (incoming.exists()) {
-            val parsed = GoogleSessionCookies.parse(incoming.readText())
-            cookies = parsed.toMutableList()
-            saveCookies()
-            check(incoming.delete()) { "Session saved, but import file could not be removed." }
-        } else if (cookieFile.exists()) {
+    /** Compatibility only: load an existing encrypted session; no new plaintext imports. */
+    @Synchronized fun loadSavedSession() {
+        if (cookieFile.exists()) {
             val bytes = cookieFile.readBytes()
             val cipher = Cipher.getInstance("AES/GCM/NoPadding")
             cipher.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, bytes.copyOfRange(0, 12)))
@@ -136,7 +131,7 @@ class PrivatePhotosClient(private val context: Context, private val anonymous: B
     }
 
     fun connect() {
-        if (cookies.isEmpty()) importSessionIfPresent()
+        if (cookies.isEmpty()) loadSavedSession()
         check(cookies.isNotEmpty()) { "Waiting for local Google session setup." }
         val html = String(request("https://photos.google.com/"), Charsets.UTF_8)
         val text = Regex("window\\.WIZ_global_data\\s*=\\s*(\\{.*?\\})\\s*;", RegexOption.DOT_MATCHES_ALL)
@@ -184,17 +179,6 @@ class PrivatePhotosClient(private val context: Context, private val anonymous: B
             if (token != null) check(seen.add(token)) { "Album pagination repeated. Try again later." }
         } while (token != null)
         return result.values.toList()
-    }
-
-    /** Validate in a separate in-memory client; an invalid upload never replaces the saved session. */
-    fun validateSession(text: String): Pair<PrivatePhotosClient, List<Album>> {
-        val candidate = PrivatePhotosClient(context)
-        candidate.persistCookies = false
-        candidate.cookies = GoogleSessionCookies.parse(text).toMutableList()
-        val albums = candidate.albums()
-        candidate.persistCookies = true
-        candidate.saveCookies()
-        return candidate to albums
     }
 
     fun sync(albumId: String, progress: (Int) -> Unit): List<FramePhoto> {

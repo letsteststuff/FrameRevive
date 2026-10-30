@@ -107,7 +107,7 @@ $urls += "Certificate SHA-256: $fingerprint"
 $urls += 'Replace old HTTP bookmarks. On another browser/device, verify this fingerprint before trusting its first-time certificate.'
 $urls | Set-Content -LiteralPath (Join-Path $backupFolder 'frame-controls.txt')
 Write-Host ''
-Write-Host 'Installed. Import YOUR Google Photos session, then choose YOUR album.'
+Write-Host 'Installed. Open Setup and connect YOUR shared Google Photos album link (no sign-in or cookies needed).'
 $urls | ForEach-Object { Write-Host $_ }
 if (-not $networkUrl) { Write-Warning 'Connect the frame to Wi-Fi before importing Google Photos.' }
 if (-not $NoBrowser) { Start-Process $usbUrl }

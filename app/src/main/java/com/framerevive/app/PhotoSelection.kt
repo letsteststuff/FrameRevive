@@ -24,17 +24,25 @@ object PhotoSelection {
 
     // Equal turns for the newest 300 by capture time and a +/-14-day seasonal pool.
     // Each pool is shuffled without replacement; dates are recalculated each day.
-    fun playlist(photos: List<FramePhoto>, today: LocalDate, random: Random = Random.Default): List<FramePhoto> {
+    fun playlist(photos: List<FramePhoto>, today: LocalDate, random: Random = Random.Default, recentCount: Int = 300, memoryDays: Int = 14, recentPercent: Int = 50): List<FramePhoto> {
+        require(recentCount in 1..2000 && memoryDays in 0..60 && recentPercent in 0..100)
         if (photos.isEmpty()) return emptyList()
-        val latest = photos.sortedByDescending { it.takenMs }.take(300).shuffled(random)
-        val memories = photos.filter { it.date().year < today.year && distance(it.date(), today) <= 14 }
-            .shuffled(random).filter { p -> latest.none { it.id == p.id } }
-        if (memories.isEmpty()) return latest
-        val result = ArrayList<FramePhoto>()
-        // Repeat smaller pool only after every photo in it has had a turn.
-        for (i in 0 until maxOf(latest.size, memories.size)) {
-            result.add(latest[i % latest.size])
-            result.add(memories[i % memories.size])
+        val latest = photos.sortedByDescending { it.takenMs }.take(recentCount).shuffled(random)
+        val latestIds = latest.map { it.id }.toHashSet()
+        val memories = photos.filter { it.date().year < today.year && distance(it.date(), today) <= memoryDays }
+            .shuffled(random).filter { p -> recentPercent == 0 || p.id !in latestIds }
+        if (memories.isEmpty() || recentPercent == 100) return latest
+        if (recentPercent == 0) return memories
+        // Ensure each pool has a full turn at ordinary ratios; cap very large cycles.
+        val turns = maxOf(kotlin.math.ceil(latest.size * 100.0 / recentPercent).toInt(),
+            kotlin.math.ceil(memories.size * 100.0 / (100-recentPercent)).toInt()).coerceAtMost(20000)
+        val result = ArrayList<FramePhoto>(turns)
+        var balance = 100-recentPercent
+        var recentIndex = 0; var memoryIndex = 0
+        repeat(turns) {
+            balance += recentPercent
+            if (balance >= 100) { balance -= 100; result.add(latest[recentIndex++ % latest.size]) }
+            else result.add(memories[memoryIndex++ % memories.size])
         }
         return result
     }

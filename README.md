@@ -4,60 +4,34 @@ A standalone Android photo-frame app for the discontinued Lenovo Smart Frame (CD
 
 **`main` is the maintained branch.** The older prototype branches are historical; start new work and builds from `main`. See the [documentation index](docs/README.md).
 
-## Current version: 0.5.16 alpha
+## Current version: 0.5.24 alpha
 
 The tested build includes a shared Google Photos album source, automatic checks for additions, a neutral three-tab HTTPS controls page, blurred photo backgrounds, a frame clock/time-zone display, hand gestures, and front-button navigation with pause/resume.
 
 - **Plus / Minus:** next / previous photo on initial press.
 - **Star:** pause/resume with a persistent Paused label. Hold about 2.5 seconds for the controls overlay, private QR code and address; the menu closes after 30 seconds without input.
 - **Web controls:** Everyday, Setup, and Debug & updates, including APK upload, safe diagnostics, and GitHub links.
-- **Photo mix:** new additions get one priority showing, then the recent 300 are ranked strictly by capture date, alternating with seasonal years-past memories. Upload date does not affect the recent group.
+- **Photo mix:** adjustable Recent/Memories slider, recent capture count, and seasonal date window. Defaults remain 300 recent photos, +/-14 days, and 50/50. Additions still get a first priority showing; capture date determines recent selection.
+- **Preloading:** a bounded background queue prepares upcoming photos; Debug shows Ready, Loading, Queued and Failed states.
+- **Gentle transitions:** optional 0.6-second crossfades between photos and collages.
+- **Collages:** optional 2-, 3- and 4-photo collages after every 20 individual photos, with layouts suited to portrait and landscape images, with adjustable frequency and a Debug preview. See the [preloading, mix and collage guide](docs/preloading-mix-collages.md).
 - **Navigation:** one active image operation and only the latest pending request, loading feedback, and history retained across same-album refreshes.
 
-Build, 47 unit tests, and lint passed. The owner confirmed front buttons, pause, held-Star overlay, blurred backgrounds, gestures, sleep/wake, automatic additions, and improved navigation on the tested Android 10 frame. See [web controls](docs/web-controls.md), [front buttons](docs/front-buttons.md), [gestures](docs/gestures.md), and [recovery](docs/recovery.md).
-
-For Windows installation, download **FrameRevive-0.5.16-Windows.zip** from the release assets, extract it, and follow **README-FIRST.md**. GitHub's automatic Source code archives are for building from source. Existing installations can upload **FrameRevive-0.5.16-alpha.apk** through Debug & updates; Android asks for confirmation on the frame. Do not uninstall first.
-
-Version 0.5.8 requires HTTPS for management and rotates the old HTTP management key once. Each frame has a persistent device certificate backed by Android Keystore. Pair its SHA-256 fingerprint through the physical frame or authorized USB before trusting it in a browser. Old HTTP bookmarks stop working. See [HTTPS pairing](docs/security-pairing.md). Slow connections now have absolute deadlines and bounded concurrency. Build, unit tests, lint, and HTTPS settings/upload/restart checks passed on the tested Android 10 Lenovo frame.
-
-Version 0.5.7 fixes a sleeping display staying off after the owner disables the schedule or changes its window to make the current time awake. The settings change now requests a hardware wake as well as restoring brightness.
-
-Version 0.5.6 automatically checks shared-album counts every two minutes while awake, refreshes when the count changes, and gives newly discovered photos a first turn before the usual mix. Hourly full refresh remains enabled. Google propagation and the full scan mean additions are not instantaneous.
-
-Version 0.5.5 adds authenticated APK upload with package/version/signature validation and Android confirmation on the frame. The controls page and installer include a [recovery guide](docs/recovery.md). The initial upgrade from older builds still uses ADB; later APKs can be uploaded from the controls page.
-
-Version 0.5.4 adds refresh/error status on the controls page, hides on-frame controls during playback, and provides a persistent per-frame `.local` bookmark on mDNS-capable networks. The existing private management key is still required.
-
-Version 0.5.3 can read an existing Google Photos shared album anonymously, including every page of a large album. Paste an album link that opens without signing in into **Shared Google Photos album link** on the frame's controls page. Shared mode uses no account cookies and rereads the shared page on each refresh. Signed-in access remains an alternative. Anyone who obtains the shared link can view the album; keep the link out of public files and screenshots.
-
-The Google web interface remains unofficial. This removes dependence on account-session exports in shared mode; it does not guarantee Google will never change or restrict shared-album access.
-
-Version 0.5.2 keeps local controls open during button actions, adds loading indicators and inline results, and restores proximity-triggered front button lights with an eight-second timeout on the tested Lenovo firmware.
-
-Version 0.5.1 replaces skipped background wake broadcasts with direct activity alarms, restores the frame's own daytime brightness, and shows the next scheduled wake in the controls page. Version 0.5 missed an overnight wake on the tested frame. The replacement passed a background-idle wake test; full overnight confirmation is still pending.
-
-FrameRevive reads an existing shared or signed-in Google Photos album over the frame's Wi-Fi connection. It replaces Lenovo's frame launcher and does not require an always-on laptop or a publicly shared album.
-
-- Hourly album refresh with complete, atomic index updates.
-- A shuffled mix of the newest 300 photos and photos captured within 14 calendar days of today in previous years.
-- Newly discovered album additions join the recent pool even when their capture date is old.
-- Display-sized image caching, capped around 512 MiB, for previously viewed photos.
-- Configurable 10–300-second slideshow interval, fit/fill mode, and capture-date captions.
-- Daytime brightness control independent of Lenovo's abandoned automatic-light behavior.
-- Private LAN management page for a phone or computer on the same network.
-- Guided Google session import and renewal through that page; no ADB needed for account setup after installation.
-- Private-album picker that builds its own photo index. No seed file or someone else's account data is needed.
-- Configurable nightly display-off and automatic wake using Android alarms and a device-admin policy limited to screen locking.
-- Default Home launcher support for startup after reboot.
-- Google session encryption using Android Keystore; app backups disabled.
-
-**This is an alpha.** Google Photos access uses an unofficial, reverse-engineered signed-in web interface. Google may change it or expire the session. Initial installation requires ADB; account connection and renewal use a guided local session-file import, rather than Google's official Sign in button. Do not publish cookie exports, album indexes, cached photos, private management URLs, or app-data backups.
+Supported setup uses a Google Photos shared album link that opens without signing in. The frame checks the album count every two minutes while awake, performs a full hourly refresh, and caches downloaded photos for offline playback. New additions get a first showing before the regular photo mix.
 
 ## Install on your own frame
 
-See [installer/README-FIRST.md](installer/README-FIRST.md). The Windows installer locates ADB, installs the APK, enables the launcher and screen-power controls, and opens the setup page. Each owner imports their own session and selects their own album. Runtime account data and private management links are never part of the shared installer.
+Use the Windows installer bundle from [Releases](https://github.com/letsteststuff/FrameRevive/releases) and follow [README-FIRST](installer/README-FIRST.md). Initial installation needs a USB data cable, authorized ADB, and a Bluetooth mouse or equivalent input device. No factory reset or root is needed. The installer sets FrameRevive as Home and reversibly disables Lenovo's abandoned app. Future APK updates can be uploaded from Debug & updates, with Android confirmation on the frame.
 
-If building from source, copy `app/build/outputs/apk/debug/app-debug.apk` to `installer/FrameRevive.apk` before running the installer. That binary and installer-generated `local/` files are intentionally ignored by Git. The project has not been tested across multiple owners' frames yet.
+Each frame creates its own private HTTPS controls link and certificate. Pair the certificate through the frame or authorized USB before trusting it. Keep management and album links private. See [HTTPS pairing](docs/security-pairing.md) and [recovery](docs/recovery.md).
+
+### Saved-session compatibility
+
+Signed-in session setup, cookie imports, album picking and session renewal are retired in 0.5.23. Existing encrypted sessions and selected signed-in albums are retained temporarily for playback and refresh. They are not the supported setup path, and an expired session cannot be renewed in FrameRevive. Setup shows affected owners how to switch the same album to a shared link; the previous catalog remains until that link finishes loading. No Google account session is needed for shared-link mode.
+
+Network-folder sources are planned, not implemented. See [ROADMAP](ROADMAP.md).
+
+If building from source, copy `app/build/outputs/apk/debug/app-debug.apk` to `installer/FrameRevive.apk` before running the installer. Binaries and installer-generated `local/` files are ignored by Git.
 
 ## Architecture
 
@@ -71,9 +45,7 @@ Use Android Studio's JDK 21, the Android SDK, and the checked-in Gradle wrapper:
 .\gradlew.bat :app:assembleDebug :app:testDebugUnitTest :app:lintDebug
 ```
 
-The alpha was built and tested on a Lenovo Smart Frame running Android 10. Hardware checks covered private-album reading, image display, LAN management authentication, display-off/automatic wake, startup after reboot, and guided setup without a saved album index or session. A newly added album photo still needs an end-to-end addition test, and long-term session durability is not established.
-
-See [alpha setup and recovery notes](docs/standalone-alpha.md). The Python [read-only access probe](tools/probe_google_photos.py) uses only the standard library and requires a locally exported Netscape cookies file. Never paste cookies into chat, issues, or pull requests.
+The tested target is Lenovo Smart Frame CD-3L501F running Android 10. The owner has confirmed playback, additions, buttons, gestures, mixed collages, fades, sleep/wake and reboot recovery. Installation on another owner's untouched frame and long-term reliability still need validation. Google Photos access uses an unofficial web interface and may change.
 
 ## Attribution
 

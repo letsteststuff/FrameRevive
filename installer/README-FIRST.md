@@ -2,7 +2,7 @@
 
 This alpha is for the Lenovo Smart Frame CD-3L501F running Android 10. It replaces the discontinued Lenovo photo app with a standalone Google Photos slideshow. It does not require root or a factory reset.
 
-Version 0.5.16-alpha includes neutral tabbed HTTPS controls, hand gestures, blurred photo backgrounds, the frame's clock, and front-button playback controls. Plus advances immediately on press, Minus goes back, Star pauses/resumes, and holding Star opens controls with a private QR code. A Paused label stays visible while paused. Sleep and album refresh continue independently. Recent-photo selection uses capture date, while additions still get their first priority showing. Photo loading keeps only the latest pending request and preserves navigation history during album refreshes. To upgrade, install the new APK without uninstalling first.
+Version 0.5.23 uses shared Google Photos album links for setup. It includes HTTPS controls, hand gestures, front-button navigation and pause, scheduled sleep/wake, preloading, adjustable photo mix, 2/3/4-photo collages and gentle transitions. Upgrade without uninstalling to preserve your settings.
 
 ## 1. Prepare the frame
 
@@ -38,25 +38,17 @@ If installation reports a signature conflict with an existing FrameRevive build,
 3. On the frame's setup page, paste the link into **Shared Google Photos album link** and click **Use shared album**.
 4. Wait for the full scan to finish. The previous slideshow continues until the replacement index is complete.
 
-This mode does not need a cookies export. Changes to that same album are checked hourly, or with **Refresh album**. Anyone with the link can view the album, so keep it private. Disabling link sharing prevents future shared-mode refreshes. Google can still change this unofficial web interface.
+This mode does not need a cookies export. Changes to that same album are checked every two minutes while awake, with a full hourly refresh, or with **Refresh album**. Anyone with the link can view the album, so keep it private. Disabling link sharing prevents future shared-mode refreshes. Google can still change this unofficial web interface.
 
-### Alternative: signed-in private album
+### Existing saved-session installations
 
-Use **Connect or renew Google Photos** on the new local setup page:
-
-1. Install **Get cookies.txt LOCALLY** from the Chrome Web Store link; allow it in Incognito.
-2. In a new Incognito window, sign in to Google Photos and open your library.
-3. Open a blank tab, close the Google Photos tab, and click **Export All Cookies** in the extension. Use Netscape text format.
-4. Close Incognito. On the frame's setup page, choose that file and click **Import session**.
-5. Wait for validation, select an album, and click **Use this album**. Large albums take time to read.
-
-The session is sent directly to your frame and stored encrypted. No album-index file is needed. Never send your cookies to someone else or commit them to GitHub. Delete the export after successful setup. This uses an unofficial Google Photos web interface; Google may require a fresh export later.
+Session import, renewal and the signed-in album picker are retired. Existing saved sessions and selected albums are retained for compatibility, with a migration notice in Setup. If the session expires, switch to a shared album link using the steps above. Your previous complete catalog remains available until the replacement loads. New installations need no cookie export.
 
 ## 4. Use without the computer
 
 Version 0.5.9 supports hand gestures on the Lenovo CD-3L501F: wave left for the next photo and right for a previously displayed photo. Pause about a second between waves. The **Hand gestures** option is under Display settings; gestures pause during sleep and while on-frame controls are open. See the [gesture guide](../docs/gestures.md).
 
-Bookmark the **Home Wi-Fi** link in `local/frame-controls.txt` on your phone. It changes the album, photo interval, fit/fill, date captions, and nightly off/on schedule. It also renews the session without ADB.
+Bookmark the **Home Wi-Fi** link in `local/frame-controls.txt` on your phone. It changes the album, photo interval, fit/fill, date captions, and nightly off/on schedule. It also changes the shared album without ADB.
 
 Once photos are displaying and the Wi-Fi link works, disconnect USB. Keep the frame powered. Scheduling is off by default; choose your own times. A router DHCP reservation keeps the address stable. Keep the management link private and do not expose the port to the internet.
 
@@ -83,7 +75,7 @@ Photo playback, real screen-off/wake, and reboot startup were tested on one Leno
 
 The local controls page shows the current source, last successful refresh, last attempt, current refresh error, and the most recent photo-download error with a timestamp. Successful refreshes clear the current refresh error. Status updates every 15 seconds without overwriting unsaved display settings.
 
-During playback the frame shows photos and optional captions. Tap with a connected input device to reveal the on-frame controls for 15 seconds. Photo changes no longer extend that timer.
+During playback the frame shows photos and optional captions. Tap with a connected input device to reveal the on-frame controls for 30 seconds. Photo changes no longer extend that timer.
 
 Use **Bookmark your controls** on the page to save the full private hostname link. Each installation generates a hostname such as `framerevive-a1b2c3d4.local`. The mDNS responder returns the current Wi-Fi IPv4 address and never advertises the management key. Keep the key in the saved URL; the hostname does not replace authentication. It works only on the same local network while the app/frame is awake. Some networks block multicast or lack local-name support; keep the IP link as a fallback, or use a router DHCP reservation. A factory reset or clearing app data creates a new hostname and key.
 

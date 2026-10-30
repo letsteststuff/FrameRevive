@@ -40,6 +40,12 @@ class PhotoHistory<T>(private val capacity: Int = 60, private val key: (T) -> St
             else (before - 1).coerceIn(-1, items.lastIndex.coerceAtLeast(-1))
     }
 
+    /** Refresh members of compound slides without losing the history cursor. */
+    fun transform(update: (T) -> T?) {
+        val refreshed=items.mapNotNull(update)
+        reconcile(refreshed)
+    }
+
     fun record(item: T, fromHistory: Boolean = false) {
         val id = key(item)
         if (items.getOrNull(cursor)?.let(key) == id) return
