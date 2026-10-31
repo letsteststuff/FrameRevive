@@ -1,0 +1,8 @@
+# Requests review from the maintainer; protection rules enforce review requirements.
+/.github/ @letsteststuff
+/SECURITY.md @letsteststuff
+/installer/ @letsteststuff
+/app/build.gradle.kts @letsteststuff
+/app/src/main/java/com/framerevive/app/FrameRemote.kt @letsteststuff
+/app/src/main/java/com/framerevive/app/FrameTls.kt @letsteststuff
+/app/src/main/java/com/framerevive/app/FrameUpdater.kt @letsteststuff
