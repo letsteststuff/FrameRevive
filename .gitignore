@@ -42,3 +42,11 @@ web/dist/
 **/shared-album-probe.html
 **/shared-ds-*.json
 **/shared-next.json
+
+# Signing and local credential material (including alternate formats/names)
+*.p12
+*.pfx
+**/keystore.properties
+**/signing.properties
+.env
+.env.*
