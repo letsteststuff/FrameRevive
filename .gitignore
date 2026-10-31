@@ -34,6 +34,15 @@ web/dist/
 /installer/local/
 /installer/FrameRevive.apk
 
+# IDE configuration is local to each developer
+/.idea/
+
+# Shared-album links grant access to photos; keep probe data local
+**/shared-album-url.txt
+**/shared-album-probe.html
+**/shared-ds-*.json
+**/shared-next.json
+
 # Signing and local credential material (including alternate formats/names)
 *.p12
 *.pfx
