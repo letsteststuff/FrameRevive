@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.25-alpha
+
+- Add optional subtle holiday decorations to photos and collages, with Off, Automatic and eight manual themes. Automatic selection uses the frame date.
+- Keep successful ADB stderr warnings from stopping installation, while failing commands still stop it.
+- Add 18 installer scenarios using a native fake ADB executable, tested in Windows PowerShell 5.1 and PowerShell 7.
+- Update Gradle to 9.8.2, Android build plugin to 9.5.0, AndroidX Core to 1.19.1, Material to 1.14.0, ConstraintLayout to 2.2.2 and the Java setup action to 6.2.0. Compile against SDK 37 with Android 10 minimum support.
+
 ## 0.5.24-alpha
 
 - Show the active Google Photos shared-album link in Debug connection status, with wrapping for phone screens.

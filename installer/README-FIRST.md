@@ -2,7 +2,9 @@
 
 This alpha is for the Lenovo Smart Frame CD-3L501F running Android 10. It replaces the discontinued Lenovo photo app with a standalone Google Photos slideshow. It does not require root or a factory reset.
 
-Version 0.5.23 uses shared Google Photos album links for setup. It includes HTTPS controls, hand gestures, front-button navigation and pause, scheduled sleep/wake, preloading, adjustable photo mix, 2/3/4-photo collages and gentle transitions. Upgrade without uninstalling to preserve your settings.
+Version 0.5.25 uses shared Google Photos album links for setup. It includes HTTPS controls, hand gestures, front-button navigation and pause, scheduled sleep/wake, preloading, adjustable photo mix, 2/3/4-photo collages and gentle transitions. Upgrade without uninstalling to preserve your settings.
+
+Holiday decorations are available in Everyday. Choose Off, Automatic, or a theme, then press Save settings at the bottom. The subtle static artwork includes colored Christmas lights, winter snowflakes, hearts, spring flowers, Easter eggs, summer stars, autumn leaves and Halloween pumpkins. Automatic uses the frame's date.
 
 ## 1. Prepare the frame
 
@@ -18,6 +20,8 @@ Version 0.5.23 uses shared Google Photos album links for setup. It includes HTTP
 **0.5.8 uses HTTPS:** the installer retrieves this frame's public certificate through authorized USB. Compare its SHA-256 fingerprint with the frame, then type `TRUST` if you want to trust it in your Windows user certificate store. Otherwise pair the browser manually using the verified fingerprint. Replace old HTTP bookmarks; the management key changes once. See [HTTPS pairing](../docs/security-pairing.md). Keep your Bluetooth Keyboard & Mouse app paired for on-frame verification and Android's installation confirmation.
 
 Double-click **Install.cmd**. The script preserves existing FrameRevive settings, enables its screen-lock-only administrator, selects it as the Home app, and disables Lenovo's frame app reversibly. It opens the private setup page through USB and saves your controls links in `local/frame-controls.txt`.
+
+ADB launch warnings are shown while installation continues when the command succeeds. A failed ADB command still stops installation.
 
 If PowerShell blocks the downloaded script, inspect it first and unblock the trusted file in its Windows Properties. Your computer's execution policy may still require manual installation; the installer does not change that policy.
 

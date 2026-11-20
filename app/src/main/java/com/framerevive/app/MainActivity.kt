@@ -34,6 +34,7 @@ class MainActivity : Activity() {
     private val checkingCount = AtomicBoolean(false)
     private val priorityIds by lazy { LinkedHashSet(prefs.getStringSet("priorityIds", emptySet()).orEmpty()) }
     private lateinit var client: PrivatePhotosClient
+    private lateinit var holidayBorder: HolidayBorderView
     private lateinit var image: FramePhotoView
     @Volatile private var photoLoading = false
     private lateinit var pausedBadge: TextView
@@ -81,7 +82,7 @@ class MainActivity : Activity() {
         override fun run() { checkAlbumCount(); handler.postDelayed(this, 120_000) }
     }
     private val clock = object : Runnable {
-        override fun run() { checkSchedule(); handler.postDelayed(this, 30_000) }
+        override fun run() { updateHoliday(); checkSchedule(); handler.postDelayed(this, 30_000) }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -102,6 +103,9 @@ class MainActivity : Activity() {
             setOnClickListener { showControls() }
         }
         root.addView(image, FrameLayout.LayoutParams(-1, -1))
+        holidayBorder = HolidayBorderView(this)
+        root.addView(holidayBorder, FrameLayout.LayoutParams(-1, -1))
+        updateHoliday()
         caption = TextView(this).apply {
             textSize = 16f; setTextColor(Color.WHITE); setPadding(24, 12, 24, 12)
             setShadowLayer(4f, 1f, 1f, Color.BLACK)
@@ -560,6 +564,10 @@ class MainActivity : Activity() {
         }
         return super.dispatchKeyEvent(event)
     }
+    private fun updateHoliday() {
+        holidayBorder.showTheme(HolidayTheme.resolve(prefs.getString("holidayTheme", "off").orEmpty(), LocalDate.now()))
+    }
+
     private fun remotePage(): String {
         val preloadEntries=preloader.snapshot()
         val preloadSummary=if(!prefs.getBoolean("preload",true)) "Disabled" else if(sleeping || !active) "Waiting while frame is inactive" else "Ready: ${preloadEntries.count { it.status == PhotoPreloader.Status.READY }} · Loading: ${preloadEntries.count { it.status == PhotoPreloader.Status.LOADING }} · Queued: ${preloadEntries.count { it.status == PhotoPreloader.Status.QUEUED }} · Failed: ${preloadEntries.count { it.status == PhotoPreloader.Status.FAILED }}"
@@ -581,6 +589,8 @@ class MainActivity : Activity() {
         }
         if (FramePower.hasScreenControl(this)) flags += "hardwareSleep"
         val text = mapOf(
+            "holidayTheme" to prefs.getString("holidayTheme", "off").orEmpty(),
+            "holidayActive" to HolidayTheme.labels[HolidayTheme.resolve(prefs.getString("holidayTheme", "off").orEmpty(), LocalDate.now())].orEmpty(),
             "recentCount" to prefs.getInt("recentCount",300).toString(), "memoryDays" to prefs.getInt("memoryDays",14).toString(),
             "recentPercent" to prefs.getInt("recentPercent",50).toString(), "memoryPercent" to (100-prefs.getInt("recentPercent",50)).toString(),
             "collageEvery" to prefs.getInt("collageEvery",20).toString(),
@@ -654,10 +664,13 @@ class MainActivity : Activity() {
                     require(recentCount in 1..2000 && memoryDays in 0..60 && recentPercent in 0..100)
                     val collageEvery=if(changingMix) fields["collageEvery"]?.toIntOrNull() ?: prefs.getInt("collageEvery",20) else prefs.getInt("collageEvery",20)
                     require(collageEvery in 5..100) { "Choose 5 to 100 photos between collages." }
+                    val holidayTheme = fields["holidayTheme"] ?: prefs.getString("holidayTheme", "off").orEmpty()
+                    require(holidayTheme in HolidayTheme.labels) { "Choose a holiday theme from the list." }
                     val wasSleeping = FramePower.shouldSleep(this) || sleeping
                     val edit = prefs.edit().putString("sleepStart",start.toString()).putString("sleepEnd",end.toString())
                         .putBoolean("schedule",fields.containsKey("schedule")).putBoolean("crop",fields.containsKey("crop"))
                         .putBoolean("date",fields.containsKey("date")).putInt("seconds",seconds).putInt("brightness",brightness)
+                    edit.putString("holidayTheme", holidayTheme)
                     if (fields["transitionSettings"] == "1") edit.putBoolean("gentleTransitions",fields.containsKey("gentleTransitions"))
                     if (fields["backgroundSettings"] == "1") edit.putBoolean("blurBackground",fields.containsKey("blurBackground"))
                     if (fields["gestureSettings"] == "1") edit.putBoolean("gestures",fields.containsKey("gestures"))
@@ -667,6 +680,7 @@ class MainActivity : Activity() {
                     FramePower.schedule(this)
                     handler.postDelayed({
                         if (!closed) {
+                            updateHoliday()
                             image.gentleTransitions = prefs.getBoolean("gentleTransitions",true)
                             image.blurredBackground = prefs.getBoolean("blurBackground",true)
                             image.scaleType = if (prefs.getBoolean("crop",false)) ImageView.ScaleType.CENTER_CROP else ImageView.ScaleType.FIT_CENTER
