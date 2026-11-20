@@ -18,19 +18,30 @@ if (-not $AdbPath -or -not (Test-Path -LiteralPath $AdbPath)) {
     throw 'ADB was not found. Extract Android SDK Platform-Tools beside this script or pass -AdbPath C:\path\adb.exe.'
 }
 if (-not (Test-Path -LiteralPath $ApkPath)) { throw 'FrameRevive.apk is missing. Keep the APK and installer together.' }
-$devices = @(& $AdbPath devices)
-if ($LASTEXITCODE -ne 0) { throw 'ADB could not start.' }
+function Invoke-FrameAdb {
+    $frameArguments = $args
+    $targetArguments = if ($Serial) { @('-s', $Serial) } else { @() }
+    $previousPreference = $ErrorActionPreference
+    # Windows PowerShell treats native stderr as ErrorRecord objects. A warning
+    # from am start is not a failed ADB command; the native exit code decides.
+    $PSNativeCommandUseErrorActionPreference = $false
+    try {
+        $ErrorActionPreference = 'Continue'
+        $result = @(& $AdbPath @targetArguments @frameArguments 2>&1)
+        $nativeExitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $previousPreference
+    }
+    $lines = @($result | ForEach-Object { $_.ToString() })
+    if ($nativeExitCode -ne 0) { throw "ADB command failed (exit $nativeExitCode): $($lines -join [Environment]::NewLine)" }
+    return $lines
+}
+$devices = @(Invoke-FrameAdb devices)
 $ready = @($devices | Where-Object { $_ -match '^\S+\s+device$' } | ForEach-Object { ($_ -split '\s+')[0] })
 if ($Serial) { if ($Serial -notin $ready) { throw 'The requested frame is not connected and authorized.' } }
 elseif ($ready.Count -eq 1) { $Serial = $ready[0] }
 elseif ($ready.Count -gt 1) { throw 'More than one Android device is connected. Disconnect the others or specify -Serial.' }
 else { throw 'Connect the frame by USB, enable USB debugging, and accept Always allow from this computer.' }
-function Invoke-FrameAdb {
-    $frameArguments = $args
-    $result = & $AdbPath -s $Serial @frameArguments 2>&1
-    if ($LASTEXITCODE -ne 0) { throw "ADB command failed: $($result -join [Environment]::NewLine)" }
-    return $result
-}
 $model = (Invoke-FrameAdb shell getprop ro.product.model) -join ''
 $android = (Invoke-FrameAdb shell getprop ro.build.version.release) -join ''
 Write-Host "Connected: $model (Android $android)"
