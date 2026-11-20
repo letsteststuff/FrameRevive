@@ -99,8 +99,7 @@ try {
     $fakeAdb = Join-Path $toolDirectory 'fake-adb.exe'
     & $compiler /nologo /target:exe "/out:$fakeAdb" (Join-Path $PSScriptRoot 'FakeAdb.cs')
     if ($LASTEXITCODE -ne 0) { throw 'Fake ADB compilation failed.' }
-    $rsa = [Security.Cryptography.RSA]::Create()
-    $rsa.KeySize = 2048
+    $rsa = [Security.Cryptography.RSACng]::new(2048)
     try {
         $request = [Security.Cryptography.X509Certificates.CertificateRequest]::new('CN=framerevive-11223344.local', $rsa,
             [Security.Cryptography.HashAlgorithmName]::SHA256, [Security.Cryptography.RSASignaturePadding]::Pkcs1)
@@ -139,3 +138,6 @@ try {
         Remove-Item -LiteralPath $resolvedRoot -Recurse -Force
     } else { Write-Host "Test artifacts retained at $testRoot" }
 }
+
+# Expected fake-ADB failures leave a native exit code behind. All assertions passed.
+exit 0
