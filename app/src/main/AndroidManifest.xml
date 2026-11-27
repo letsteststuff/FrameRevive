@@ -38,6 +38,7 @@
             android:exported="true"
             android:turnScreenOn="true"
             android:showWhenLocked="true"
+            android:screenOrientation="fullSensor"
             android:launchMode="singleTask">
 
             <intent-filter>
